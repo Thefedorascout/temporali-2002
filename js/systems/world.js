@@ -141,66 +141,60 @@ function nearestTown(x,z){let best=towns[0],bd=Infinity;for(const t of towns){le
 const roadSegments=[];const roadMarkPositions=[];const roadEdgePositions=[];const roadPositions=[];const roadUvs=[];const roadIndices=[];const shoulderPositions=[];const shoulderIndices=[];
 const shoulderMat=new THREE.MeshStandardMaterial({color:0x777d72,roughness:1});
 const ROAD_GRID=280,ROAD_MAX_GRADE=.085;
-function terrainRoadRoute(a,b){
- const direct=Math.hypot(b.x-a.x,b.z-a.z);if(direct<1200)return [a,b];
- const margin=clamp(direct*.30,5200,10500),minX=Math.min(a.x,b.x)-margin,maxX=Math.max(a.x,b.x)+margin,minZ=Math.min(a.z,b.z)-margin,maxZ=Math.max(a.z,b.z)+margin;
+function terrainRoadRoute(a,b,local=false){
+ const direct=Math.hypot(b.x-a.x,b.z-a.z);
+ const endpointGrade=Math.abs(heightAt(a.x,a.z)-heightAt(b.x,b.z))/Math.max(1,direct);
+ if(direct<360||(local&&direct<760&&endpointGrade<ROAD_MAX_GRADE))return [a,b];
+ const margin=local?clamp(direct*.60,850,2400):clamp(direct*.30,5200,10500);
+ const minX=Math.min(a.x,b.x)-margin,maxX=Math.max(a.x,b.x)+margin,minZ=Math.min(a.z,b.z)-margin,maxZ=Math.max(a.z,b.z)+margin;
  const minGX=Math.floor(minX/ROAD_GRID),maxGX=Math.ceil(maxX/ROAD_GRID),minGZ=Math.floor(minZ/ROAD_GRID),maxGZ=Math.ceil(maxZ/ROAD_GRID);
  const sx=Math.round(a.x/ROAD_GRID),sz=Math.round(a.z/ROAD_GRID),ex=Math.round(b.x/ROAD_GRID),ez=Math.round(b.z/ROAD_GRID);
  const key=(x,z)=>x+','+z,coord=(x,z)=>({x:x*ROAD_GRID,z:z*ROAD_GRID});
- const startKey=key(sx,sz),endKey=key(ex,ez);
- const offsets=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+ const startKey=key(sx,sz),endKey=key(ex,ez),offsets=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
  const hCache=new Map(),height=(x,z)=>{const k=key(x,z);if(!hCache.has(k))hCache.set(k,heightAt(x*ROAD_GRID,z*ROAD_GRID));return hCache.get(k);};
- const gScore=new Map([[startKey,0]]),came=new Map(),closed=new Set(),heap=[];
- function push(item){let i=heap.length;heap.push(item);while(i>0){const p=(i-1)>>1;if(heap[p].f<=item.f)break;heap[i]=heap[p];i=p;}heap[i]=item;}
- function pop(){const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){let l=i*2+1,r=l+1;if(l>=heap.length)break;let c=r<heap.length&&heap[r].f<heap[l].f?r:l;if(heap[c].f>=last.f)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;}
  const heuristic=(x,z)=>Math.hypot(ex-x,ez-z)*ROAD_GRID;
- push({x:sx,z:sz,g:0,f:heuristic(sx,sz)});
- let found=false,visits=0;
- while(heap.length&&visits++<90000){
-  const cur=pop(),ck=key(cur.x,cur.z);
-  if(closed.has(ck))continue;
-  if(cur.g>(gScore.get(ck)??Infinity))continue;
-  if(cur.x===ex&&cur.z===ez){found=true;break;}
-  closed.add(ck);const ch=height(cur.x,cur.z);
-  for(const [ox,oz] of offsets){
-   const nx=cur.x+ox,nz=cur.z+oz;
-   if(nx<minGX||nx>maxGX||nz<minGZ||nz>maxGZ)continue;
-   const np=coord(nx,nz);if(inLake(np.x,np.z))continue;
-   const nk=key(nx,nz);if(closed.has(nk))continue;
-   const horizontal=Math.hypot(ox,oz)*ROAD_GRID,nh=height(nx,nz),grade=Math.abs(nh-ch)/horizontal;
-   // Prefer valley floors and contour-following roads. Steep short cuts remain possible only if unavoidable.
-   const excess=Math.max(0,grade-ROAD_MAX_GRADE)/ROAD_MAX_GRADE;
-   const cost=horizontal*(1+excess*excess*5.5);
-   const tentative=cur.g+cost;
-   if(tentative<(gScore.get(nk)??Infinity)){
-    gScore.set(nk,tentative);came.set(nk,ck);
-    push({x:nx,z:nz,g:tentative,f:tentative+heuristic(nx,nz)});
+ function search(maxGrade){
+  const gScore=new Map([[startKey,0]]),came=new Map(),closed=new Set(),heap=[];
+  function push(item){let i=heap.length;heap.push(item);while(i>0){const p=(i-1)>>1;if(heap[p].f<=item.f)break;heap[i]=heap[p];i=p;}heap[i]=item;}
+  function pop(){const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){const l=i*2+1,r=l+1;if(l>=heap.length)break;const c=r<heap.length&&heap[r].f<heap[l].f?r:l;if(heap[c].f>=last.f)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;}
+  push({x:sx,z:sz,g:0,f:heuristic(sx,sz)});let found=false,visits=0;
+  while(heap.length&&visits++<90000){
+   const cur=pop(),ck=key(cur.x,cur.z);
+   if(closed.has(ck)||cur.g>(gScore.get(ck)??Infinity))continue;
+   if(cur.x===ex&&cur.z===ez){found=true;break;}
+   closed.add(ck);const ch=height(cur.x,cur.z);
+   for(const [ox,oz] of offsets){
+    const nx=cur.x+ox,nz=cur.z+oz;
+    if(nx<minGX||nx>maxGX||nz<minGZ||nz>maxGZ)continue;
+    const np=coord(nx,nz);if(inLake(np.x,np.z))continue;
+    const nk=key(nx,nz);if(closed.has(nk))continue;
+    const horizontal=Math.hypot(ox,oz)*ROAD_GRID,nh=height(nx,nz),grade=Math.abs(nh-ch)/horizontal;
+    if(grade>maxGrade)continue;
+    // Within the allowed maximum, still prefer a contour road over one close to the grade limit.
+    const excess=Math.max(0,grade-.065)/.065,cost=horizontal*(1+excess*excess*2.2),tentative=cur.g+cost;
+    if(tentative<(gScore.get(nk)??Infinity)){gScore.set(nk,tentative);came.set(nk,ck);push({x:nx,z:nz,g:tentative,f:tentative+heuristic(nx,nz)});}
    }
   }
+  if(!found)return null;
+  const cells=[];let current=endKey,guard=0;
+  while(current&&guard++<12000){const [x,z]=current.split(',').map(Number);cells.push(coord(x,z));if(current===startKey)break;current=came.get(current);}
+  if(!cells.length||key(Math.round(cells[cells.length-1].x/ROAD_GRID),Math.round(cells[cells.length-1].z/ROAD_GRID))!==startKey)return null;
+  cells.reverse();const simplified=[cells[0]];
+  for(let i=1;i<cells.length-1;i++){
+   const p=simplified[simplified.length-1],c=cells[i],n=cells[i+1],ax=c.x-p.x,az=c.z-p.z,bx=n.x-c.x,bz=n.z-c.z,den=Math.hypot(ax,az)*Math.hypot(bx,bz)||1;
+   if((ax*bx+az*bz)/den<.985)simplified.push(c);
+  }
+  simplified.push(cells[cells.length-1]);
+  const rounded=[a];
+  for(let i=1;i<simplified.length-1;i++){const p=simplified[i-1],c=simplified[i],n=simplified[i+1],q=.22;rounded.push({x:lerp(p.x,c.x,q),z:lerp(p.z,c.z,q)},{x:lerp(c.x,n.x,q),z:lerp(c.z,n.z,q)});}
+  rounded.push(b);return rounded;
  }
- if(!found)return [a,b];
- const cells=[];let current=endKey,guard=0;
- while(current&&guard++<12000){const [x,z]=current.split(',').map(Number);cells.push(coord(x,z));if(current===startKey)break;current=came.get(current);}
- if(!cells.length||key(Math.round(cells[cells.length-1].x/ROAD_GRID),Math.round(cells[cells.length-1].z/ROAD_GRID))!==startKey)return [a,b];
- cells.reverse();
- // Remove near-collinear cells to keep mesh size low while retaining every meaningful switchback.
- const simplified=[cells[0]];
- for(let i=1;i<cells.length-1;i++){
-  const p=simplified[simplified.length-1],c=cells[i],n=cells[i+1];
-  const ax=c.x-p.x,az=c.z-p.z,bx=n.x-c.x,bz=n.z-c.z,den=Math.hypot(ax,az)*Math.hypot(bx,bz)||1;
-  if((ax*bx+az*bz)/den<.985)simplified.push(c);
- }
- simplified.push(cells[cells.length-1]);
- // Round sharp grid corners slightly; the smoothing is intentionally conservative so it does not cut across steep slopes.
- const rounded=[a];
- for(let i=1;i<simplified.length-1;i++){
-  const p=simplified[i-1],c=simplified[i],n=simplified[i+1],q=.22;
-  rounded.push({x:lerp(p.x,c.x,q),z:lerp(p.z,c.z,q)},{x:lerp(c.x,n.x,q),z:lerp(c.z,n.z,q)});
- }
- rounded.push(b);return rounded;
+ // Try a 8.5% grade limit first, relaxing only if the synthetic terrain has no valid connection.
+ for(const cap of [ROAD_MAX_GRADE,.12,.17,.25,.38]){const route=search(cap);if(route)return route;}
+ return [a,b];
 }
 function roadBetween(a,b,width=8,marking=true,terrainRoute=false){
- const path=terrainRoute?terrainRoadRoute(a,b):[a,b];if(path.length<2)return;
+ const directLength=Math.hypot(b.x-a.x,b.z-a.z),endGrade=Math.abs(heightAt(a.x,a.z)-heightAt(b.x,b.z))/Math.max(1,directLength);const localRoute=!terrainRoute&&directLength>350&&endGrade>ROAD_MAX_GRADE*1.10;const path=terrainRoute?terrainRoadRoute(a,b,false):(localRoute?terrainRoadRoute(a,b,true):[a,b]);if(path.length<2)return;
  const lengths=[],cumulative=[0];let total=0;
  for(let i=0;i<path.length-1;i++){const len=Math.hypot(path[i+1].x-path[i].x,path[i+1].z-path[i].z);lengths.push(len);total+=len;cumulative.push(total);}
  if(total<1)return;
