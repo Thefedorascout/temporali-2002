@@ -318,7 +318,7 @@ const streetPostDummy=new THREE.Object3D();let streetPostCount=0;
 function makeStreetPlate(x,z,name,angle){
  const y=heightAt(x,z),w=1.62,h=.27;
  streetPostDummy.position.set(x,y+1.22,z);streetPostDummy.rotation.set(0,angle,0);streetPostDummy.scale.set(1,1,1);streetPostDummy.updateMatrix();streetPosts.setMatrixAt(streetPostCount++,streetPostDummy.matrix);
- const c=document.createElement('canvas');c.width=512;c.height=88;const ctx=c.getContext('2d);
+ const c=document.createElement('canvas');c.width=512;c.height=88;const ctx=c.getContext('2d');
  ctx.fillStyle='#255b78';ctx.fillRect(0,0,512,88);ctx.strokeStyle='#f0f0e7';ctx.lineWidth=8;ctx.strokeRect(5,5,502,78);
  ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=name.length>20?'bold 28px Arial':'bold 36px Arial';ctx.fillText(name,256,45,476);
  const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;
