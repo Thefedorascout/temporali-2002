@@ -1,0 +1,41 @@
+name: JavaScript checks
+
+on:
+  push:
+    branches: ["main", "refactor/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  syntax-and-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check JavaScript syntax
+        run: find js -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Check referenced files and module order
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const assert = require('assert');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script src=["']([^"']+)["']/g)].map(m => m[1]);
+          for (const src of scripts) {
+            if (/^https?:/.test(src)) continue;
+            assert(fs.existsSync(src), 'Missing script: ' + src);
+          }
+          assert(fs.existsSync('css/game.css'), 'Missing stylesheet');
+          const expected = ['js/config.js','js/core/utils.js','js/data/towns.js','js/systems/world.js','js/systems/vehicle.js','js/systems/storms.js','js/main.js'];
+          let last = -1;
+          for (const src of expected) {
+            const pos = scripts.indexOf(src);
+            assert(pos > last, 'Missing or out-of-order script: ' + src);
+            last = pos;
+          }
+          console.log('Module paths and load order OK');
+          NODE
