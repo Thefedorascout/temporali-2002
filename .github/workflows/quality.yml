@@ -30,7 +30,7 @@ jobs:
             assert(fs.existsSync(src), 'Missing script: ' + src);
           }
           assert(fs.existsSync('css/game.css'), 'Missing stylesheet');
-          const expected = ['js/config.js','js/core/utils.js','js/data/towns.js','js/systems/world.js','js/systems/vehicle.js','js/systems/storms.js','js/main.js'];
+          const expected = ['js/config.js','js/core/utils.js','js/data/towns.js','js/systems/world.js','js/systems/vehicle.js','js/systems/storms.js','js/systems/weather.js','js/systems/player.js','js/systems/camera.js','js/ui/laptop.js','js/controls/input.js','js/main.js'];
           let last = -1;
           for (const src of expected) {
             const pos = scripts.indexOf(src);

@@ -2,25 +2,29 @@
 
 ## Struttura del progetto
 
-- `index.html`: markup dell'interfaccia e ordine di caricamento dei sistemi.
+- `index.html`: markup e ordine di caricamento.
 - `css/game.css`: stili dell'interfaccia.
-- `js/config.js`: configurazione condivisa (versione, ritmo temporale, cassa e batteria iniziali).
-- `js/core/utils.js`: funzioni comuni per numeri, distanze, casualità e accesso agli elementi dell'interfaccia.
-- `js/data/towns.js`: registro dei comuni e ancoraggi altimetrici indicativi.
-- `js/systems/world.js`: terreno, quote, strade, insediamenti, edifici civici, alberi e collocazione della casa iniziale.
-- `js/systems/vehicle.js`: geometria procedurale della Fiat Multipla prima serie.
-- `js/systems/storms.js`: generazione visiva delle nubi temporalesche.
-- `js/main.js`: orchestrazione della partita, simulazione meteorologica, movimento, videocamera, portatile, MeteoTube, input, audio e rendering.
+- `js/config.js`: versione e impostazioni iniziali.
+- `js/core/utils.js`: utility condivise.
+- `js/data/towns.js`: comuni e ancoraggi altimetrici indicativi.
+- `js/systems/world.js`: scena 3D, terreno, rilievi, strade, centri abitati, edifici, alberi e casa iniziale.
+- `js/systems/vehicle.js`: modello procedurale della Fiat Multipla.
+- `js/systems/storms.js`: geometria visiva delle nubi.
+- `js/systems/weather.js`: condizioni locali, movimento delle celle, pioggia, fulmini e report.
+- `js/systems/player.js`: camminata, guida, collisioni e prompt di interazione.
+- `js/systems/camera.js`: videocamera MiniDV, pulizia lente, fuoco, registrazione e punteggio dei filmati.
+- `js/ui/laptop.js`: portatile, radar, segnalazioni, MeteoTube, negozio e mappa.
+- `js/controls/input.js`: tastiera, mouse, pointer lock e comandi di gioco.
+- `js/main.js`: inizializzazione e ciclo di rendering.
 
-I file condividono namespace classici (`window.Temporali...`) anziché usare import ES modules. È una scelta deliberata per mantenere l'avvio con doppio clic su `index.html` (`file://`), senza un server locale.
+Gli script usano namespace classici `window.Temporali...` invece di import ES modules per mantenere la compatibilità con l'avvio tramite doppio clic su `index.html` (`file://`), senza server locale. I sistemi ricevono le dipendenze attraverso un oggetto di contesto.
 
 ## Avvio
 
-1. Scarica il repository (Code → Download ZIP) oppure fai il clone.
-2. Estrai l'intero contenuto mantenendo le cartelle.
-3. Apri `index.html` con Chrome, Edge o Firefox aggiornato.
-4. È richiesta una connessione Internet per scaricare Three.js dal CDN.
-5. Premi “Entra nell'estate 2002”.
+1. Scarica il repository (Code → Download ZIP) ed estrai tutto mantenendo le cartelle.
+2. Apri `index.html` con Chrome, Edge o Firefox aggiornato.
+3. È necessaria Internet per scaricare Three.js dal CDN.
+4. Premi “Entra nell'estate 2002”.
 
 ## Comandi
 
@@ -30,7 +34,7 @@ I file condividono namespace classici (`window.Temporali...`) anziché usare imp
 | Mouse | Guardarsi intorno |
 | E | Interagire con portatile, auto o uscire dall'auto |
 | M | Aprire / chiudere la carta |
-| L | Usare il portatile in una zona Wi-Fi pubblica |
+| L | Usare il portatile nelle zone Wi-Fi pubbliche |
 | V | Impugnare / riporre la videocamera MiniDV |
 | R | Avviare / terminare un filmato |
 | Rotella mouse | Regolare il fuoco |
@@ -41,20 +45,14 @@ I file condividono namespace classici (`window.Temporali...`) anziché usare imp
 | Spazio | Freno breve durante la guida |
 | Esc | Pausa / liberare il mouse |
 
-## Dove lavorare
+## Dove modificare
 
-- **Terreno, strade, paesi e alberi:** `js/systems/world.js`
-- **Modello della Fiat Multipla:** `js/systems/vehicle.js`
-- **Forma delle nubi temporalesche:** `js/systems/storms.js`
-- **Comuni e quote indicative:** `js/data/towns.js`
-- **Configurazione e utility condivise:** `js/config.js`, `js/core/utils.js`
-- **Loop, interfaccia e logica di partita:** `js/main.js`
-- **Stili:** `css/game.css`
+Per terreno e città usa `js/systems/world.js`; per l'auto `vehicle.js`; per la dinamica meteo `weather.js`; per la videocamera `camera.js`; per i report e il portatile `js/ui/laptop.js`; per i comandi `js/controls/input.js`; per coordinate e quote `js/data/towns.js`.
 
 ## Controlli automatici
 
-Il workflow GitHub Actions controlla la sintassi JavaScript di ogni file e che i percorsi referenziati da `index.html` esistano. Questi controlli non sostituiscono una prova grafica in un browser reale.
+GitHub Actions verifica la sintassi di ogni file JavaScript, i percorsi degli script e il loro ordine di caricamento. Non sostituisce un test grafico in un browser WebGL.
 
-## Limiti noti della demo
+## Limiti noti
 
-La mappa non è una ricostruzione 1:1: strade, terreno e fabbricati sono ancora procedurali, le quote dei centri abitati sono indicative e non è integrato un modello digitale del terreno. La Multipla è geometria procedurale, non un asset CAD; il meteo è una simulazione ludica e i progressi non persistono dopo il refresh. Il portatile usa servizi fittizi del 2002 e non naviga su siti reali.
+La mappa non è una ricostruzione 1:1: strade, terreno ed edifici sono procedurali, le quote dei centri abitati sono indicative e non è integrato un modello digitale del terreno. La Multipla è geometria procedurale, non un asset CAD; il meteo è una simulazione ludica e i progressi non persistono dopo il refresh. Il portatile simula servizi fittizi del 2002 e non apre siti web reali.
