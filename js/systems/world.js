@@ -516,7 +516,7 @@ function addCivicFoundations(){
     verts.push(lx,top,lz,lx,bottom,lz);
    }
    // On level sites use only a modest foundation curb; on slopes the same skirt becomes a retaining face.
-   if(maxDrop<1.0){
+   if(maxDrop<.25){
     for(let i=0;i<=segments;i++)verts[i*6+4]=-.45;
    }
    for(let i=0;i<segments;i++){const a=i*2,b=a+1,c=a+2,d=a+3;indices.push(a,c,b,b,c,d);}
