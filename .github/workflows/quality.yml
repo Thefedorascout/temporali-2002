@@ -24,7 +24,7 @@ jobs:
           const fs = require('fs');
           const assert = require('assert');
           const html = fs.readFileSync('index.html', 'utf8');
-          const scripts = [...html.matchAll(/<script src=["']([^"']+)["']/g)].map(m => m[1]);
+          const scripts = [...html.matchAll(/<script src=["']([^"']+)["']/g)].map(m => m[1].replace(/^\.\//, ''));
           for (const src of scripts) {
             if (/^https?:/.test(src)) continue;
             assert(fs.existsSync(src), 'Missing script: ' + src);
