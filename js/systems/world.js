@@ -65,9 +65,9 @@ function ungradedTerrainHeightAt(x,z){
  return Math.max(2,rawTerrainHeight(x,z)+smoothedTownCorrection(x,z));
 }
 function registerGradePad(t,lx,lz,angle,halfW,halfD,kind='building'){
- const p=localPoint(t,lx,lz,angle),footprint=Math.hypot(halfW,halfD)+5;
- const innerRadius=Math.max(kind==='piazza'?64:48,footprint),outerRadius=innerRadius+52;
- terrainGradePads.push({x:p.x,z:p.z,innerRadius,outerRadius,level:0,kind});
+ const p=localPoint(t,lx,lz,angle),footprintRadius=Math.hypot(halfW,halfD)+1;
+ const innerRadius=Math.max(kind==='piazza'?64:48,footprintRadius+4),outerRadius=innerRadius+52;
+ terrainGradePads.push({x:p.x,z:p.z,footprintRadius,innerRadius,outerRadius,level:0,kind});
 }
 function buildTerrainGradePads(){
  for(const t of towns){
