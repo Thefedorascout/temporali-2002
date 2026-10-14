@@ -1,7 +1,7 @@
 // Regional scene factory: terrain, roads, settlement generation, civic buildings, trees and starting-home placement.
 (function(global){
   global.TemporaliWorld = {
-    create({THREE, utils}) {
+    create({THREE, utils, startZone='brescia-centro'}) {
       const {$, clamp, lerp, rand, choose, dist} = utils;
       const {towns:TOWN_RAW, elevations:TOWN_ELEVATION} = global.TemporaliData;
 const towns=TOWN_RAW.map(([name,lon,lat,province,pop,kind],i)=>({name,lon,lat,province,pop,kind,id:i,elev:TOWN_ELEVATION[name]??(kind==='mountain'?520:kind==='hill'?220:kind==='lake'?165:kind==='city'?100:75),x:(lon-9.8)*40000,z:(46.25-lat)*52000}));
@@ -12,9 +12,9 @@ for(const t of towns){const key=Math.floor(t.x/5000)+','+Math.floor(t.z/5000);if
 function nearestElevationAnchor(x,z){const gx=Math.floor(x/5000),gz=Math.floor(z/5000);let best=null,bd=Infinity;for(let ix=gx-1;ix<=gx+1;ix++)for(let iz=gz-1;iz<=gz+1;iz++){const list=elevationBins.get(ix+','+iz);if(!list)continue;for(const t of list){const d=dist(x,z,t.x,t.z);if(d<bd){bd=d;best=t;}}}return {town:best,distance:bd};}
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91a9aa);scene.fog=new THREE.FogExp2(0x91a9aa,0.000022);
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,90000);camera.rotation.order='YXZ';
-const renderer=new THREE.WebGLRenderer({canvas:$('world'),antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+const renderer=new THREE.WebGLRenderer({canvas:$('world'),antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 const hemi=new THREE.HemisphereLight(0xc9e4ef,0x454d37,1.0);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffe6c0,1.45);sun.position.set(200,500,300);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-250;sun.shadow.camera.right=250;sun.shadow.camera.top=250;sun.shadow.camera.bottom=-250;sun.shadow.camera.near=.5;sun.shadow.camera.far=2000;sun.shadow.bias=-0.0005;scene.add(sun);scene.add(sun.target);
+const sun=new THREE.DirectionalLight(0xffe6c0,1.45);sun.position.set(200,500,300);sun.castShadow=true;sun.shadow.mapSize.set(512,512);sun.shadow.camera.left=-250;sun.shadow.camera.right=250;sun.shadow.camera.top=250;sun.shadow.camera.bottom=-250;sun.shadow.camera.near=.5;sun.shadow.camera.far=2000;sun.shadow.bias=-0.0005;scene.add(sun);scene.add(sun.target);
 const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});
 // A subtle generated grass texture prevents the enormous terrain from reading as a flat green sheet.
 const grassCanvas=document.createElement('canvas');grassCanvas.width=512;grassCanvas.height=512;
@@ -57,7 +57,7 @@ function smoothedTownCorrection(x,z){
  const q=clamp(1-nearest/14500,0,1),fade=q*q*(3-2*q);
  return average*fade;
 }
-const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:900,segZ:1050};
+const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:760,segZ:880};
 let terrainGrid=null;
 const GRADE_BIN_SIZE=320,terrainGradePads=[],terrainGradeBins=new Map();
 function ungradedTerrainHeightAt(x,z){
@@ -402,7 +402,7 @@ const instWindows=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),instWindo
 const instShutters=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.94}),houseLimit*4);
 const instChimneys=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),houseLimit);
 const instChimneyCaps=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0x504a40,roughness:1}),houseLimit);
-for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.count=0;mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);}
+for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.count=0;const structural=mesh===instWalls||mesh===instRoofs;mesh.castShadow=structural;mesh.receiveShadow=structural;scene.add(mesh);}
 const housePalette=[0xbdb3a1,0xd4cbb8,0x9d6d53,0xb0b7ab,0xc4c0ae,0xc9b79e];
 const roofPalette=[0x834f3b,0x675d52,0x8d5941,0x615c54,0x985f48];
 const doorPalette=[0x6c513b,0x8b5b3b,0xb4a18b,0x4d5e5d];
@@ -554,23 +554,37 @@ addTownLandmarks();
 addCivicFoundations();
 mergeCivicGroups();
 instWalls.count=houseCount;instRoofs.count=houseCount;instDoors.count=houseCount;instWindows.count=windowCount;instShutters.count=shutterCount;instChimneys.count=chimneyCount;instChimneyCaps.count=chimneyCount;for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
-const TREE_CAPACITY=16000,treeData=[];let trunks,leafA,leafB,leafC,leafD,leafE,treeDummy=new THREE.Object3D(),treeWindClock=0;
+const TREE_CAPACITY=16000,treeData=[],TREE_SPATIAL_CELL=260,treeSpatialBins=new Map();let trunks,leafA,leafB,leafC,leafD,leafE,treeDummy=new THREE.Object3D(),treeWindClock=0;
 function treeInstance(mesh,k,x,y,z,scaleX,scaleY,scaleZ,rx=0,ry=0,rz=0,color=null){treeDummy.position.set(x,y,z);treeDummy.rotation.set(rx,ry,rz);treeDummy.scale.set(scaleX,scaleY,scaleZ);treeDummy.updateMatrix();mesh.setMatrixAt(k,treeDummy.matrix);if(color)mesh.setColorAt(k,new THREE.Color(color));}
 function addTreeAt(x,z,forcedScale=null){if(treeData.length>=TREE_CAPACITY||inLake(x,z)||isNearRoad(x,z,18))return;const terrain=heightAt(x,z);if(terrain>2100)return;const scale=forcedScale||rand(.72,1.45),yaw=rand(0,Math.PI*2),phase=rand(0,Math.PI*2),y=terrain,k=treeData.length;treeInstance(trunks,k,x,y+1.55*scale,z,scale,scale,scale,0,yaw,0);const shades=[new THREE.Color().setHSL(rand(.24,.34),rand(.28,.46),rand(.23,.34)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.48),rand(.25,.37)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.48),rand(.24,.36)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.46),rand(.25,.38))];
- treeInstance(leafA,k,x,y+4.05*scale,z,1.6*scale,1.65*scale,1.55*scale,0,yaw,0,shades[0]);treeInstance(leafB,k,x-.86*scale,y+4.0*scale,z+.12*scale,1.18*scale,1.22*scale,1.12*scale,.08,yaw+.6,.08,shades[1]);treeInstance(leafC,k,x+.84*scale,y+4.25*scale,z-.08*scale,1.20*scale,1.28*scale,1.18*scale,-.06,yaw-1.0,-.08,shades[2]);treeInstance(leafD,k,x+.08*scale,y+5.08*scale,z-.12*scale,1.15*scale,1.30*scale,1.15*scale,.04,yaw+.15,0,shades[3]);treeInstance(leafE,k,x+.03*scale,y+5.72*scale,z+.04*scale,.78*scale,.92*scale,.80*scale,-.03,yaw-.35,.02,shades[1]);treeData.push({x,z,y,scale,yaw,phase});trunks.count=leafA.count=leafB.count=leafC.count=leafD.count=leafE.count=treeData.length;}
-function makeTrees(){const trunkGeo=new THREE.CylinderGeometry(.13,.25,3.1,8);const leafGeo=new THREE.SphereGeometry(1,14,10);const leafBaseMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});const leafAltMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});trunks=new THREE.InstancedMesh(trunkGeo,sharedMats.treeTrunk,TREE_CAPACITY);leafA=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafB=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafC=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafD=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafE=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.castShadow=true;m.receiveShadow=true;m.count=0;scene.add(m);}
+ treeInstance(leafA,k,x,y+4.05*scale,z,1.6*scale,1.65*scale,1.55*scale,0,yaw,0,shades[0]);treeInstance(leafB,k,x-.86*scale,y+4.0*scale,z+.12*scale,1.18*scale,1.22*scale,1.12*scale,.08,yaw+.6,.08,shades[1]);treeInstance(leafC,k,x+.84*scale,y+4.25*scale,z-.08*scale,1.20*scale,1.28*scale,1.18*scale,-.06,yaw-1.0,-.08,shades[2]);treeInstance(leafD,k,x+.08*scale,y+5.08*scale,z-.12*scale,1.15*scale,1.30*scale,1.15*scale,.04,yaw+.15,0,shades[3]);treeInstance(leafE,k,x+.03*scale,y+5.72*scale,z+.04*scale,.78*scale,.92*scale,.80*scale,-.03,yaw-.35,.02,shades[1]);treeData.push({x,z,y,scale,yaw,phase});const binKey=Math.floor(x/TREE_SPATIAL_CELL)+','+Math.floor(z/TREE_SPATIAL_CELL);if(!treeSpatialBins.has(binKey))treeSpatialBins.set(binKey,[]);treeSpatialBins.get(binKey).push(k);trunks.count=leafA.count=leafB.count=leafC.count=leafD.count=leafE.count=treeData.length;}
+function makeTrees(){const trunkGeo=new THREE.CylinderGeometry(.13,.25,3.1,8);const leafGeo=new THREE.SphereGeometry(1,14,10);const leafBaseMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});const leafAltMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});trunks=new THREE.InstancedMesh(trunkGeo,sharedMats.treeTrunk,TREE_CAPACITY);leafA=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafB=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafC=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafD=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafE=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.castShadow=false;m.receiveShadow=false;m.count=0;scene.add(m);}
  // Random field trees and mixed woodland groups; dense tree lines follow valleys and rural roads.
  let tries=0;while(treeData.length<1750&&tries++<18000){const x=rand(-3500,62000),z=rand(-4000,69000);if(towns.some(t=>dist(x,z,t.x,t.z)<townUrbanRadius(t)*.88))continue;addTreeAt(x,z);}
  const groves=[];for(let i=0;i<30;i++){const north=i<20;groves.push({x:rand(1000,38000),z:north?rand(-2500,26500):rand(26000,59000),r:rand(850,2100)});}
  for(const grove of groves){const target=treeData.length+Math.floor(rand(120,220));let localTry=0;while(treeData.length<target&&localTry++<1800){const a=rand(0,Math.PI*2),r=Math.sqrt(Math.random())*grove.r,x=grove.x+Math.cos(a)*r,z=grove.z+Math.sin(a)*r;if(towns.some(t=>dist(x,z,t.x,t.z)<townUrbanRadius(t)*.78))continue;addTreeAt(x,z);}}
 }
-function updateFoliage(dt,p,gameState){treeWindClock+=dt;if(treeWindClock<.12)return;treeWindClock=0;const wind=clamp((gameState.wind||8)/70,.04,.8),clock=performance.now()*.001;let dirty=false;for(let i=0;i<treeData.length;i++){const t=treeData[i];if(dist(p.x,p.z,t.x,t.z)>1500)continue;const sway=Math.sin(clock*1.05+t.phase)*wind*.105,swaySide=Math.cos(clock*.83+t.phase*.71)*wind*.065,sc=t.scale;
- treeInstance(trunks,i,t.x,t.y+1.55*sc,t.z,sc,sc,sc,swaySide*.16,t.yaw,sway*.12);
- treeInstance(leafA,i,t.x+sway*1.2*sc,t.y+4.05*sc,t.z+swaySide*1.2*sc,1.6*sc,1.65*sc,1.55*sc,swaySide*.6,t.yaw,sway);
- treeInstance(leafB,i,t.x+(-.86+sway*.8)*sc,t.y+4.0*sc,t.z+(.12+swaySide)*sc,1.18*sc,1.22*sc,1.12*sc,.08+swaySide,t.yaw+.6,.08+sway);
- treeInstance(leafC,i,t.x+(.84+sway*1.1)*sc,t.y+4.25*sc,t.z+(-.08+swaySide)*sc,1.20*sc,1.28*sc,1.18*sc,-.06+swaySide,t.yaw-1.0,-.08+sway);
- treeInstance(leafD,i,t.x+(.08+sway*1.4)*sc,t.y+5.08*sc,t.z+(-.12+swaySide*1.3)*sc,1.15*sc,1.30*sc,1.15*sc,.04+swaySide,t.yaw+.15,sway*1.3);treeInstance(leafE,i,t.x+.03*sc,t.y+5.72*sc,t.z+.04*sc,.78*sc,.92*sc,.80*sc,-.03,t.yaw-.35,.02);dirty=true;}
- if(dirty)for(const m of [trunks,leafA,leafB,leafC,leafD,leafE])m.instanceMatrix.needsUpdate=true;}
+function updateFoliage(dt,p,gameState){
+ treeWindClock+=dt;if(treeWindClock<.18)return;treeWindClock=0;
+ const wind=clamp((gameState.wind||8)/70,.04,.8),clock=performance.now()*.001,radius=620;
+ const minX=Math.floor((p.x-radius)/TREE_SPATIAL_CELL),maxX=Math.floor((p.x+radius)/TREE_SPATIAL_CELL);
+ const minZ=Math.floor((p.z-radius)/TREE_SPATIAL_CELL),maxZ=Math.floor((p.z+radius)/TREE_SPATIAL_CELL);let dirty=false;
+ // Only visit nearby tree buckets. Distant trees remain static; this avoids checking every tree every tick.
+ for(let bx=minX;bx<=maxX;bx++)for(let bz=minZ;bz<=maxZ;bz++){
+  const indices=treeSpatialBins.get(bx+','+bz);if(!indices)continue;
+  for(const i of indices){
+   const t=treeData[i];if(dist(p.x,p.z,t.x,t.z)>radius)continue;
+   const sway=Math.sin(clock*1.05+t.phase)*wind*.105,swaySide=Math.cos(clock*.83+t.phase*.71)*wind*.065,sc=t.scale;
+   treeInstance(trunks,i,t.x,t.y+1.55*sc,t.z,sc,sc,sc,swaySide*.16,t.yaw,sway*.12);
+   treeInstance(leafA,i,t.x+sway*1.2*sc,t.y+4.05*sc,t.z+swaySide*1.2*sc,1.6*sc,1.65*sc,1.55*sc,swaySide*.6,t.yaw,sway);
+   treeInstance(leafB,i,t.x+(-.86+sway*.8)*sc,t.y+4.0*sc,t.z+(.12+swaySide)*sc,1.18*sc,1.22*sc,1.12*sc,.08+swaySide,t.yaw+.6,.08+sway);
+   treeInstance(leafC,i,t.x+(.84+sway*1.1)*sc,t.y+4.25*sc,t.z+(-.08+swaySide)*sc,1.20*sc,1.28*sc,1.18*sc,-.06+swaySide,t.yaw-1.0,-.08+sway);
+   treeInstance(leafD,i,t.x+(.08+sway*1.4)*sc,t.y+5.08*sc,t.z+(-.12+swaySide*1.3)*sc,1.15*sc,1.30*sc,1.15*sc,.04+swaySide,t.yaw+.15,sway*1.3);
+   treeInstance(leafE,i,t.x+.03*sc,t.y+5.72*sc,t.z+.04*sc,.78*sc,.92*sc,.80*sc,-.03,t.yaw-.35,.02);dirty=true;
+  }
+ }
+ if(dirty)for(const m of [trunks,leafA,leafB,leafC,leafD,leafE])m.instanceMatrix.needsUpdate=true;
+}
 makeTrees();
 function makeForests(){
  const rnd=seededTownRandom(20020602);
@@ -607,7 +621,18 @@ makeForests();
 function makePole(x,z){const y=heightAt(x,z);cyl(scene,.13,.18,7,new THREE.MeshStandardMaterial({color:0x514c43}),x,y+3.5,z,0,0,0,7);box(scene,2.2,.16,.15,sharedMats.roof2,x,y+6.4,z);}
 for(let i=0;i<roadSegments.length;i+=4){const s=roadSegments[i];for(const q of [.22,.72]){const x=lerp(s.a.x,s.b.x,q),z=lerp(s.a.z,s.b.z,q);if(Math.random()<.48)makePole(x+rand(-12,12),z+rand(-12,12));}}
 // The interior is deliberately furnished like a modest 2002 home.
-const homeOptions=towns;const homeTown=choose(homeOptions);const homeAngle=rand(0,Math.PI*2);const homeOffset=homeTown.pop>150000?rand(500,950):homeTown.pop>50000?rand(350,700):homeTown.pop>15000?rand(220,420):homeTown.pop>5000?rand(130,310):rand(35,160);const homeX=homeTown.x+Math.cos(homeAngle)*homeOffset,homeZ=homeTown.z+Math.sin(homeAngle)*homeOffset;const homeGroup=new THREE.Group();homeGroup.position.set(homeX,heightAt(homeX,homeZ),homeZ);scene.add(homeGroup);
+const startZoneHomes={
+ 'val-sabbia':{town:'Idro',minOffset:90,maxOffset:175},
+ 'val-trompia':{town:'Gardone Val Trompia',minOffset:155,maxOffset:270},
+ 'brescia-centro':{town:'Brescia',minOffset:420,maxOffset:600},
+ 'mantova-centro':{town:'Mantova',minOffset:230,maxOffset:350},
+ 'lago-garda':{town:'Desenzano del Garda',minOffset:180,maxOffset:300}
+};
+const zoneHome=startZoneHomes[startZone]||startZoneHomes['brescia-centro'];
+const homeTown=townByName[zoneHome.town]||townByName.Brescia;
+const homeAngle=rand(0,Math.PI*2),homeOffset=rand(zoneHome.minOffset,zoneHome.maxOffset);
+const homeX=homeTown.x+Math.cos(homeAngle)*homeOffset,homeZ=homeTown.z+Math.sin(homeAngle)*homeOffset;
+const homeGroup=new THREE.Group();homeGroup.position.set(homeX,heightAt(homeX,homeZ),homeZ);scene.add(homeGroup);
 // A small belt of trees around the starting home makes the ground legible at walking distance.
 for(let i=0;i<190;i++){const a=rand(0,Math.PI*2),r=rand(28,260);const tx=homeX+Math.cos(a)*r,tz=homeZ+Math.sin(a)*r;if(dist(tx,tz,homeX,homeZ)>24)addTreeAt(tx,tz,rand(.75,1.35));}for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.instanceMatrix.needsUpdate=true;m.count=treeData.length;}
 // Generated 2002-style town-entry signs on the regional roads.
@@ -661,7 +686,8 @@ for(const t of towns.filter(t=>t.pop>=5000)){
 streetPosts.count=streetPostCount;streetPosts.instanceMatrix.needsUpdate=true;scene.add(streetPosts);
 roadBetween({x:homeX+7,z:homeZ+12},{x:homeX+115,z:homeZ+79},6.8);
 makeRoadSign(homeX+95,homeZ+67,homeTown.name,homeTown.province,Math.atan2(108,67));
-      return {scene,camera,renderer,hemi,sun,groundMat,box,cyl,towns,townByName,townUrbanRadius,heightAt,rawTerrainHeight,inLake,lakeLevel,nearestTown,roadSegments,roadBetween,buildingBoxes,sharedMats,homeTown,homeX,homeZ,homeGroup,updateFoliage,addTreeAt};
+      renderer.shadowMap.needsUpdate=true;
+      return {scene,camera,renderer,hemi,sun,groundMat,box,cyl,towns,townByName,townUrbanRadius,heightAt,rawTerrainHeight,inLake,lakeLevel,nearestTown,roadSegments,roadBetween,buildingBoxes,sharedMats,homeTown,homeX,homeZ,homeGroup,updateFoliage,addTreeAt,startZone};
     }
   };
 })(window);
