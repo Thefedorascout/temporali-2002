@@ -6,3 +6,11 @@
 #mapScreen{display:none;position:fixed;inset:0;z-index:10;background:rgba(4,11,12,.96);padding:20px;overflow:auto}.map-panel{max-width:1100px;margin:auto;border:1px solid #576e63;background:#101d1b;padding:20px}.map-head{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:10px}.map-head h2{margin:5px 0;font-size:22px;letter-spacing:-.04em}.map-canvas{width:100%;height:auto;background:#1a2b28;border:1px solid #43594e;display:block}.map-legend{display:flex;gap:16px;flex-wrap:wrap;color:#b4c4ba;font-size:11px;margin-top:12px}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.legend-note{color:#82938a;font-size:10px;line-height:1.6;margin-top:14px}
 #gameover{display:none;position:fixed;inset:0;z-index:25;background:rgba(6,12,12,.96);align-items:center;justify-content:center;text-align:center;padding:24px}#gameover h2{font-size:42px;letter-spacing:-.07em;margin:12px 0}#tooltip{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:4;display:none;max-width:220px;background:rgba(10,18,17,.84);border:1px solid var(--line);padding:12px;font-size:11px;line-height:1.5;pointer-events:none}#tooltip strong{display:block;margin-bottom:4px;color:var(--lime)}
 @media(max-width:720px){.top-left{left:10px;top:10px;width:215px;padding:9px}.top-right{right:10px;top:10px;padding:9px;min-width:125px}.weather-big{font-size:18px}.readout{font-size:20px}.bottom-left{left:10px;bottom:10px}.bottom-right{right:10px;bottom:10px;max-width:42%}.app-grid{grid-template-columns:1fr}.win-toolbar .tab{padding:10px 8px;font-size:10px}.report{grid-template-columns:1fr}.report button{justify-self:start}.status-badge{display:none}.start-copy{font-size:13px}}
+
+
+.start-zone{max-width:420px;margin-top:18px}
+.start-zone label{display:block;font-size:10px;letter-spacing:.18em;color:var(--lime);text-transform:uppercase;margin-bottom:8px}
+.start-zone select{width:100%;padding:12px 13px;border:1px solid #64796d;background:rgba(11,22,19,.94);color:var(--ink);font:inherit;font-size:13px;letter-spacing:.02em;outline:none}
+.start-zone select:focus{border-color:var(--lime);box-shadow:0 0 0 2px #d0e9a733}
+.start-zone p{font-size:10px;line-height:1.5;color:#a4b3ac;margin:7px 0 0}
+.start-zone select:disabled{opacity:.7}
