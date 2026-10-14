@@ -505,17 +505,18 @@ function addCivicFoundations(){
    const top=.035;
    for(let i=0;i<=segments;i++){
     const q=i/segments,lx=lerp(side.a.x,side.b.x,q),lz=lerp(side.a.z,side.b.z,q);
-    const wx=group.position.x+lx*Math.cos(-group.rotation.y)+lz*Math.sin(-group.rotation.y);
-    const wz=group.position.z-lx*Math.sin(-group.rotation.y)+lz*Math.cos(-group.rotation.y);
-    const sampleX=wx+side.nx*5*Math.cos(-group.rotation.y)+side.nz*5*Math.sin(-group.rotation.y);
-    const sampleZ=wz-side.nx*5*Math.sin(-group.rotation.y)+side.nz*5*Math.cos(-group.rotation.y);
+    const yaw=group.rotation.y;
+    const wx=group.position.x+lx*Math.cos(yaw)+lz*Math.sin(yaw);
+    const wz=group.position.z-lx*Math.sin(yaw)+lz*Math.cos(yaw);
+    const worldNX=side.nx*Math.cos(yaw)+side.nz*Math.sin(yaw),worldNZ=-side.nx*Math.sin(yaw)+side.nz*Math.cos(yaw);
+    const sampleX=wx+worldNX*5,sampleZ=wz+worldNZ*5;
     const groundY=heightAt(sampleX,sampleZ),drop=group.position.y-groundY;maxDrop=Math.max(maxDrop,drop);
     const bottom=Math.min(-.4,groundY-group.position.y-.35);
     verts.push(lx,top,lz,lx,bottom,lz);
    }
    // On level sites use only a modest foundation curb; on slopes the same skirt becomes a retaining face.
    if(maxDrop<1.0){
-    for(let i=0;i<=segments;i++){verts[i*6+1]=top;verts[i*6+4]=Math.min(-.28,verts[i*6+4]);}
+    for(let i=0;i<=segments;i++)verts[i*6+4]=-.45;
    }
    for(let i=0;i<segments;i++){const a=i*2,b=a+1,c=a+2,d=a+3;indices.push(a,c,b,b,c,d);}
    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(indices);geo.computeVertexNormals();
