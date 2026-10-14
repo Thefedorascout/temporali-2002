@@ -524,8 +524,30 @@ function addCivicFoundations(){
   }
  }
 }
-function mergeCivicGroups(){for(const group of civicGroups){}const buckets=new Map(),oldMeshes=group.children.filter(c=>c.isMesh);for(const child of oldMeshes){child.updateMatrix();const mat=Array.isArray(child.material)?child.material[0]:child.material;let b=buckets.get(mat);if(!b){b={mat,positions:[],normals:[],indices:[],count:0,cast:false,receive:false};buckets.set(mat,b);}const geo=child.geometry.clone();geo.applyMatrix4(child.matrix);if(!geo.getAttribute('normal'))geo.computeVertexNormals();const pa=geo.getAttribute('position'),na=geo.getAttribute('normal'),offset=b.positions.length/3;for(let i=0;i<pa.count;i++){b.positions.push(pa.getX(i),pa.getY(i),pa.getZ(i));b.normals.push(na.getX(i),na.getY(i),na.getZ(i));}if(geo.index){for(const id of geo.index.array)b.indices.push(offset+id);}else for(let i=0;i<pa.count;i++)b.indices.push(offset+i);b.cast=b.cast||child.castShadow;b.receive=b.receive||child.receiveShadow;geo.dispose();}
- for(const child of oldMeshes)group.remove(child);for(const b of buckets.values()){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.positions,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.normals,3));geo.setIndex(b.indices);const m=new THREE.Mesh(geo,b.mat);m.castShadow=b.cast;m.receiveShadow=b.receive;group.add(m);}}}
+function mergeCivicGroups(){
+ for(const group of civicGroups){
+  const buckets=new Map(),oldMeshes=group.children.filter(c=>c.isMesh);
+  for(const child of oldMeshes){
+   child.updateMatrix();
+   const mat=Array.isArray(child.material)?child.material[0]:child.material;
+   let bucket=buckets.get(mat);
+   if(!bucket){bucket={mat,positions:[],normals:[],indices:[],cast:false,receive:false};buckets.set(mat,bucket);}
+   const geo=child.geometry.clone();geo.applyMatrix4(child.matrix);
+   if(!geo.getAttribute('normal'))geo.computeVertexNormals();
+   const pos=geo.getAttribute('position'),norm=geo.getAttribute('normal'),offset=bucket.positions.length/3;
+   for(let i=0;i<pos.count;i++){bucket.positions.push(pos.getX(i),pos.getY(i),pos.getZ(i));bucket.normals.push(norm.getX(i),norm.getY(i),norm.getZ(i));}
+   if(geo.index){for(const index of geo.index.array)bucket.indices.push(offset+index);}else for(let i=0;i<pos.count;i++)bucket.indices.push(offset+i);
+   bucket.cast=bucket.cast||child.castShadow;bucket.receive=bucket.receive||child.receiveShadow;geo.dispose();
+  }
+  for(const child of oldMeshes)group.remove(child);
+  for(const bucket of buckets.values()){
+   const geo=new THREE.BufferGeometry();
+   geo.setAttribute('position',new THREE.Float32BufferAttribute(bucket.positions,3));
+   geo.setAttribute('normal',new THREE.Float32BufferAttribute(bucket.normals,3));geo.setIndex(bucket.indices);
+   const mesh=new THREE.Mesh(geo,bucket.mat);mesh.castShadow=bucket.cast;mesh.receiveShadow=bucket.receive;group.add(mesh);
+  }
+ }
+}
 makeVillage();
 addTownLandmarks();
 addCivicFoundations();
