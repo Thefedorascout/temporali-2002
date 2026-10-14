@@ -281,7 +281,6 @@ function isNearRoad(x,z,clearance=20){
  }
  return false;
 }
-buildRoadSpatialIndex();
 function localPoint(t,x,z,angle=0){return {x:t.x+x*Math.cos(angle)-z*Math.sin(angle),z:t.z+x*Math.sin(angle)+z*Math.cos(angle)};}
 function buildTownStreets(){for(const t of towns){const r=townUrbanRadius(t),angle=(t.id*0.61803398875%1)*Math.PI,core=t.pop>100000?110:t.pop>20000?83:t.pop>8000?62:40;const streetW=t.pop>50000?8:t.pop>10000?6.5:5.2;const outer=r*.82;
  // Connected octagonal collector ring around each settlement.
@@ -294,6 +293,7 @@ function buildTownStreets(){for(const t of towns){const r=townUrbanRadius(t),ang
  for(const v of offsets){let a=localPoint(t,v,-outer,angle),b=localPoint(t,v,-core-35,angle),c=localPoint(t,v,core+35,angle),d=localPoint(t,v,outer,angle);roadBetween(a,b,streetW*.72,false);roadBetween(c,d,streetW*.72,false);a=localPoint(t,-outer,v,angle);b=localPoint(t,-core-35,v,angle);c=localPoint(t,core+35,v,angle);d=localPoint(t,outer,v,angle);roadBetween(a,b,streetW*.72,false);roadBetween(c,d,streetW*.72,false);}
  }}
 buildTownStreets();
+buildRoadSpatialIndex(); // Include regional routes and local streets in vegetation clearance.
 // Procedural asphalt grain follows each road; broad shoulder ribbons overlap at junctions to hide seams.
 const asphaltCanvas=document.createElement('canvas');asphaltCanvas.width=256;asphaltCanvas.height=256;
 const asphaltCtx=asphaltCanvas.getContext('2d');asphaltCtx.fillStyle='#eeeeea';asphaltCtx.fillRect(0,0,256,256);
