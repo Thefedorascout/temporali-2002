@@ -17,10 +17,10 @@ const hemi=new THREE.HemisphereLight(0xc9e4ef,0x454d37,1.0);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffe6c0,1.45);sun.position.set(200,500,300);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-250;sun.shadow.camera.right=250;sun.shadow.camera.top=250;sun.shadow.camera.bottom=-250;sun.shadow.camera.near=.5;sun.shadow.camera.far=2000;sun.shadow.bias=-0.0005;scene.add(sun);scene.add(sun.target);
 const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});
 // A subtle generated grass texture prevents the enormous terrain from reading as a flat green sheet.
-const grassCanvas=document.createElement('canvas');grassCanvas.width=256;grassCanvas.height=256;
-const grassCtx=grassCanvas.getContext('2d');grassCtx.fillStyle='#f0f2df';grassCtx.fillRect(0,0,256,256);
-for(let i=0;i<5200;i++){const x=Math.random()*256,y=Math.random()*256;const v=Math.random();grassCtx.fillStyle=v<.35?'rgba(102,132,77,.15)':v<.7?'rgba(190,166,112,.12)':'rgba(255,255,238,.22)';grassCtx.fillRect(x,y,Math.random()*2.3+.4,Math.random()*2.3+.4);}
-for(let i=0;i<520;i++){grassCtx.strokeStyle=Math.random()<.5?'rgba(92,122,69,.18)':'rgba(210,193,145,.15)';grassCtx.lineWidth=.45;grassCtx.beginPath();const x=Math.random()*256,y=Math.random()*256;grassCtx.moveTo(x,y);grassCtx.lineTo(x+rand(1,4),y-rand(1,4));grassCtx.stroke();}
+const grassCanvas=document.createElement('canvas');grassCanvas.width=512;grassCanvas.height=512;
+const grassCtx=grassCanvas.getContext('2d');grassCtx.fillStyle='#d9d6b8';grassCtx.fillRect(0,0,256,256);
+for(let i=0;i<17000;i++){const x=Math.random()*512,y=Math.random()*512;const v=Math.random();grassCtx.fillStyle=v<.36?'rgba(69,99,51,.24)':v<.68?'rgba(166,146,91,.19)':'rgba(255,248,220,.27)';grassCtx.fillRect(x,y,Math.random()*2.8+.35,Math.random()*2.8+.35);}
+for(let i=0;i<1100;i++){grassCtx.strokeStyle=Math.random()<.5?'rgba(74,101,54,.26)':'rgba(190,172,123,.20)';grassCtx.lineWidth=.65;grassCtx.beginPath();const x=Math.random()*512,y=Math.random()*512;grassCtx.moveTo(x,y);grassCtx.lineTo(x+rand(1,5),y-rand(1,5));grassCtx.stroke();}
 const grassTexture=new THREE.CanvasTexture(grassCanvas);grassTexture.wrapS=grassTexture.wrapT=THREE.RepeatWrapping;grassTexture.repeat.set(2200,2600);grassTexture.encoding=THREE.sRGBEncoding;grassTexture.anisotropy= Math.min(8,renderer.capabilities.getMaxAnisotropy());groundMat.map=grassTexture;
 function inLake(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;const iseo=((x-10600)/1050)**2+((z-30500)/6900)**2<1;if(!(garda||iseo))return false;const near=nearestElevationAnchor(x,z);return !(near.town&&near.town.kind==='lake'&&near.distance<townUrbanRadius(near.town)*.9);}
 function lakeLevel(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;return garda?65:185;}
@@ -41,14 +41,78 @@ function rawTerrainHeight(x,z){
  return Math.max(4,plain+rolling+franciacorta+maddalena+valTrompia+camonica+adamello+maniva+gardaMountains+alpineBackbone);
 }
 for(const t of towns)t.elevCorrection=t.elev-rawTerrainHeight(t.x,t.z);
-function heightAt(x,z){
+const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:700,segZ:820};
+let terrainGrid=null;
+function analyticHeightAt(x,z){
  const base=rawTerrainHeight(x,z);if(inLake(x,z))return lakeLevel(x,z);
  const near=nearestElevationAnchor(x,z),t=near.town;if(!t)return base;
  const radius=Math.max(650,townUrbanRadius(t)*1.25),q=clamp(1-near.distance/radius,0,1),w=q*q*(3-2*q);
  return Math.max(2,base+t.elevCorrection*w);
 }
-function makeTerrain(){const minX=-5000,maxX=65000,minZ=-9000,maxZ=73000,segX=420,segZ=480;const geo=new THREE.PlaneGeometry(maxX-minX,maxZ-minZ,segX,segZ);geo.rotateX(-Math.PI/2);const pos=geo.attributes.position;const colors=[];const temp=new THREE.Color();const cx=(minX+maxX)/2,cz=(minZ+maxZ)/2;for(let i=0;i<pos.count;i++){const x=pos.getX(i)+cx;const z=pos.getZ(i)+cz;const h=heightAt(x,z);pos.setY(i,h);const n=Math.sin(x/1700)*Math.cos(z/2200);const col=temp;if(inLake(x,z))col.setRGB(.12,.30,.36);else if(h>1500)col.setRGB(.39,.42,.39);else if(h>850)col.setRGB(.38,.44,.36);else if(h>450)col.setRGB(.39,.47,.35);else if(h>220)col.setRGB(.41,.49,.34);else if(n>.65)col.setRGB(.46,.52,.34);else col.setRGB(.43,.50,.33);const v=1+Math.sin(x/870)*Math.cos(z/1040)*.055;colors.push(col.r*v,col.g*v,col.b*v);}geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();const mesh=new THREE.Mesh(geo,groundMat);/* IMPORTANT: vertex heights were sampled in map coordinates, so the physical terrain must be shifted to that same origin. */mesh.position.set(cx,0,cz);mesh.receiveShadow=true;mesh.frustumCulled=false;scene.add(mesh);}
+// Roads and props query the same triangles as the rendered heightmap, avoiding buried objects on steep terrain.
+function heightAt(x,z){
+ if(!terrainGrid)return analyticHeightAt(x,z);
+ const b=terrainGrid;
+ if(x<b.minX||x>b.maxX||z<b.minZ||z>b.maxZ)return analyticHeightAt(x,z);
+ const gx=clamp((x-b.minX)/b.stepX,0,b.segX-1e-7),gz=clamp((b.maxZ-z)/b.stepZ,0,b.segZ-1e-7);
+ const ix=Math.floor(gx),iz=Math.floor(gz),u=gx-ix,v=gz-iz,row=b.segX+1;
+ const h00=b.heights[iz*row+ix],h01=b.heights[(iz+1)*row+ix],h10=b.heights[iz*row+ix+1],h11=b.heights[(iz+1)*row+ix+1];
+ if(u+v<=1)return h00*(1-u-v)+h01*v+h10*u;
+ return h01*(1-u)+h11*(u+v-1)+h10*(1-v);
+}
+function makeTerrain(){
+ const {minX,maxX,minZ,maxZ,segX,segZ}=TERRAIN_BOUNDS,stepX=(maxX-minX)/segX,stepZ=(maxZ-minZ)/segZ;
+ const geo=new THREE.PlaneGeometry(maxX-minX,maxZ-minZ,segX,segZ);geo.rotateX(-Math.PI/2);
+ const pos=geo.attributes.position,heights=new Float32Array(pos.count),colors=new Float32Array(pos.count*3),cx=(minX+maxX)/2,cz=(minZ+maxZ)/2;
+ for(let i=0;i<pos.count;i++){const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=analyticHeightAt(x,z);heights[i]=h;pos.setY(i,h);}
+ geo.computeVertexNormals();const normals=geo.attributes.normal,temp=new THREE.Color();
+ for(let i=0;i<pos.count;i++){
+  const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=heights[i],slope=1-Math.max(0,normals.getY(i));
+  const textureNoise=1+Math.sin(x/470)*Math.cos(z/590)*.035+Math.sin((x+z)/127)*.012;
+  if(inLake(x,z))temp.setRGB(.10,.25,.29);
+  else if(slope>.24||h>2300)temp.setRGB(.30,.32,.30);
+  else if(h>1550)temp.setRGB(.35,.39,.36);
+  else if(h>1050)temp.setRGB(.34,.41,.33);
+  else if(h>700)temp.setRGB(.34,.43,.31);
+  else if(h>420)temp.setRGB(.36,.45,.31);
+  else if(h>220)temp.setRGB(.39,.46,.31);
+  else{
+   const fieldPattern=Math.sin(x/2150+Math.sin(z/3100))*Math.cos(z/1750+Math.sin(x/3700));
+   if(z>41000&&fieldPattern>.34)temp.setRGB(.48,.46,.30);
+   else if(z>41000&&fieldPattern<-.45)temp.setRGB(.38,.40,.27);
+   else temp.setRGB(.39,.44,.30);
+  }
+  colors[i*3]=temp.r*textureNoise;colors[i*3+1]=temp.g*textureNoise;colors[i*3+2]=temp.b*textureNoise;
+ }
+ geo.setAttribute('color',new THREE.BufferAttribute(colors,3));
+ const mesh=new THREE.Mesh(geo,groundMat);mesh.position.set(cx,0,cz);mesh.receiveShadow=true;mesh.frustumCulled=false;scene.add(mesh);
+ terrainGrid={minX,maxX,minZ,maxZ,segX,segZ,stepX,stepZ,heights};
+}
 makeTerrain();
+
+function makeFarmland(){
+ const positions=[],colors=[],indices=[],subX=8,subZ=9,row=subX+1;
+ const palette=[0xb5a66d,0x94975d,0x9d8a5b,0x7e8c50,0xbab17c,0x8c8060].map(c=>new THREE.Color(c));
+ const rnd=seededTownRandom(200207);let made=0,tries=0;
+ while(made<155&&tries++<1800){
+  const cx=-1500+rnd()*63000,cz=41400+rnd()*29200;
+  if(inLake(cx,cz)||heightAt(cx,cz)>235||towns.some(t=>dist(cx,cz,t.x,t.z)<townUrbanRadius(t)*1.42+130))continue;
+  const w=210+rnd()*330,d=260+rnd()*450,angle=rnd()*Math.PI*2,base=palette[Math.floor(rnd()*palette.length)],start=positions.length/3;
+  for(let j=0;j<=subZ;j++)for(let i=0;i<=subX;i++){
+   let lx=(i/subX-.5)*w,lz=(j/subZ-.5)*d;
+   if(i===0||i===subX)lx+=(rnd()-.5)*w*.045;
+   if(j===0||j===subZ)lz+=(rnd()-.5)*d*.045;
+   const x=cx+lx*Math.cos(angle)-lz*Math.sin(angle),z=cz+lx*Math.sin(angle)+lz*Math.cos(angle),h=heightAt(x,z)+.28;
+   positions.push(x,h,z);const v=.94+rnd()*.12;colors.push(base.r*v,base.g*v,base.b*v);
+  }
+  for(let j=0;j<subZ;j++)for(let i=0;i<subX;i++){const a=start+j*row+i,b=a+row,c=b+1,d0=a+1;indices.push(a,b,d0,b,c,d0);}
+  made++;
+ }
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.setIndex(indices);geo.computeVertexNormals();
+ const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1});
+ const fields=new THREE.Mesh(geo,mat);fields.receiveShadow=true;fields.castShadow=false;fields.frustumCulled=false;scene.add(fields);
+}
+makeFarmland();
 // distant ridgelines give the northern horizon a recognisable prealpine silhouette
 const ridgeMat=new THREE.MeshStandardMaterial({color:0x526961,roughness:1,flatShading:true});
 function addRidges(){for(let r=0;r<3;r++){const pts=[];for(let i=0;i<=100;i++){const x=-2000+i*650;const y=300+r*115+Math.sin(i*.29+r*1.4)*180+Math.sin(i*.08+r)*310;pts.push(new THREE.Vector3(x,y,-5000-r*900));}const shapePts=[new THREE.Vector2(pts[0].x,0),...pts.map(p=>new THREE.Vector2(p.x,p.y)),new THREE.Vector2(pts[pts.length-1].x,0)];const shape=new THREE.Shape(shapePts);const geo=new THREE.ShapeGeometry(shape);geo.rotateX(0);const mesh=new THREE.Mesh(geo,ridgeMat);mesh.position.z=-55000-r*13000;mesh.material= ridgeMat; // silhouette far beyond the mapped north
@@ -60,14 +124,27 @@ function box(parent,w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){const m=new THREE.Mesh(new T
 function cyl(parent,r1,r2,h,mat,x,y,z,rx=0,ry=0,rz=0,segments=12){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,segments),mat);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);m.castShadow=true;parent.add(m);return m;}
 function ellipsoid(parent,sx,sy,sz,mat,x,y,z,rx=0,ry=0,rz=0,detail=2){const m=new THREE.Mesh(new THREE.SphereGeometry(1,detail===2?24:16,detail===2?16:10),mat);m.scale.set(sx,sy,sz);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
 function nearestTown(x,z){let best=towns[0],bd=Infinity;for(const t of towns){let d=dist(x,z,t.x,t.z);if(d<bd){bd=d;best=t;}}return {town:best,distance:bd};}
-const roadSegments=[];const roadMarkPositions=[];const roadPositions=[];const roadIndices=[];const shoulderMat=new THREE.MeshStandardMaterial({color:0x777e72,roughness:1});
+const roadSegments=[];const roadMarkPositions=[];const roadEdgePositions=[];const roadPositions=[];const roadUvs=[];const roadIndices=[];const shoulderPositions=[];const shoulderIndices=[];
+const shoulderMat=new THREE.MeshStandardMaterial({color:0x777d72,roughness:1});
 function roadBetween(a,b,width=8,marking=true){
  const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<1)return;
- const ux=dx/len,uz=dz/len,n=Math.max(1,Math.ceil(len/85)),half=width/2,positions=[],indices=[];
- for(let i=0;i<=n;i++){const q=i/n,cx=lerp(a.x,b.x,q),cz=lerp(a.z,b.z,q);const lx=cx-uz*half,lz=cz+ux*half,rx=cx+uz*half,rz=cz-ux*half;positions.push(lx,heightAt(lx,lz)+.20,lz,rx,heightAt(rx,rz)+.20,rz);}
- for(let i=0;i<n;i++){const a0=i*2,b0=a0+1,a1=a0+2,b1=a0+3;indices.push(a0,a1,b0,b0,a1,b1);}
- const indexOffset=roadPositions.length/3;roadPositions.push(...positions);for(const idx of indices)roadIndices.push(indexOffset+idx);roadSegments.push({a,b,width});
- if(marking&&len>120){for(let d=28;d<len-8;d+=Math.max(76,width*12)){const q=d/len,px=lerp(a.x,b.x,q),pz=lerp(a.z,b.z,q),dy=heightAt(px,pz)+.31;roadMarkPositions.push(px-ux*2.0,dy,pz-uz*2.0,px+ux*2.0,dy,pz+uz*2.0);}}
+ const ux=dx/len,uz=dz/len,n=Math.max(1,Math.ceil(len/55)),half=width/2,shoulderHalf=half+1.25,positions=[],uvs=[],indices=[],shoulders=[],shIndices=[];
+ const endPad=Math.max(2.5,width*.38),routeLength=len+endPad*2;let prevL=null,prevR=null;
+ for(let i=0;i<=n;i++){
+  const q=i/n,d=q*routeLength-endPad,cx=a.x+ux*d,cz=a.z+uz*d;
+  const lx=cx-uz*half,lz=cz+ux*half,rx=cx+uz*half,rz=cz-ux*half;
+  const slx=cx-uz*shoulderHalf,slz=cz+ux*shoulderHalf,srx=cx+uz*shoulderHalf,srz=cz-ux*shoulderHalf;
+  const yL=heightAt(lx,lz),yR=heightAt(rx,rz),syL=heightAt(slx,slz),syR=heightAt(srx,srz);
+  positions.push(lx,yL+.22,lz,rx,yR+.22,rz);shoulders.push(slx,syL+.12,slz,srx,syR+.12,srz);
+  uvs.push(q*routeLength/24,0,q*routeLength/24,1);
+  if(i<n){const a0=i*2,b0=a0+1,a1=a0+2,b1=a0+3;indices.push(a0,a1,b0,b0,a1,b1);shIndices.push(a0,a1,b0,b0,a1,b1);}
+  if(marking&&prevL&&prevR)roadEdgePositions.push(prevL.x,prevL.y+.30,prevL.z,lx,yL+.30,lz,prevR.x,prevR.y+.30,prevR.z,rx,yR+.30,rz);
+  prevL={x:lx,y:yL,z:lz};prevR={x:rx,y:yR,z:rz};
+ }
+ const indexOffset=roadPositions.length/3;roadPositions.push(...positions);roadUvs.push(...uvs);for(const idx of indices)roadIndices.push(indexOffset+idx);
+ const shoulderOffset=shoulderPositions.length/3;shoulderPositions.push(...shoulders);for(const idx of shIndices)shoulderIndices.push(shoulderOffset+idx);
+ roadSegments.push({a,b,width});
+ if(marking&&len>80){for(let d=14;d<len-5;d+=18){const q=d/len,px=lerp(a.x,b.x,q),pz=lerp(a.z,b.z,q),dy=heightAt(px,pz)+.32;roadMarkPositions.push(px-ux*2.0,dy,pz-uz*2.0,px+ux*2.0,dy,pz+uz*2.0);}}
 }
 function buildRoadNetwork(){const connected=new Set();for(const t of towns){const nearest=towns.map(o=>({o,d:dist(t.x,t.z,o.x,o.z)})).filter(v=>v.o!==t).sort((a,b)=>a.d-b.d).slice(0,2);for(const item of nearest){const ids=[Math.min(t.id,item.o.id),Math.max(t.id,item.o.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(t,item.o,dist(t.x,t.z,item.o.x,item.o.z)>8500?10:7,true);}}}
  const named=[['Brescia','Mantova'],['Brescia','Desenzano del Garda'],['Brescia','Iseo'],['Brescia','Rovato'],['Brescia','Lumezzane'],['Montichiari','Castiglione delle Stiviere'],['Montichiari','Mantova'],['Chiari','Orzinuovi'],['Mantova','Suzzara'],['Mantova','Ostiglia'],['Iseo','Pisogne'],['Gardone Val Trompia','Lumezzane']];for(const [a,b] of named){const A=townByName[a],B=townByName[b];if(A&&B){const ids=[Math.min(A.id,B.id),Math.max(A.id,B.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(A,B,11,true);}}}}
@@ -84,9 +161,18 @@ function buildTownStreets(){for(const t of towns){const r=townUrbanRadius(t),ang
  for(const v of offsets){let a=localPoint(t,v,-outer,angle),b=localPoint(t,v,-core-35,angle),c=localPoint(t,v,core+35,angle),d=localPoint(t,v,outer,angle);roadBetween(a,b,streetW*.72,false);roadBetween(c,d,streetW*.72,false);a=localPoint(t,-outer,v,angle);b=localPoint(t,-core-35,v,angle);c=localPoint(t,core+35,v,angle);d=localPoint(t,outer,v,angle);roadBetween(a,b,streetW*.72,false);roadBetween(c,d,streetW*.72,false);}
  }}
 buildTownStreets();
-// Batch the many regional and local road ribbons into one mesh so settlements do not create thousands of draw calls.
-const roadGeo=new THREE.BufferGeometry();roadGeo.setAttribute('position',new THREE.Float32BufferAttribute(roadPositions,3));roadGeo.setIndex(roadIndices);roadGeo.computeVertexNormals();const roadMesh=new THREE.Mesh(roadGeo,sharedMats.asphalt);roadMesh.material.side=THREE.DoubleSide;roadMesh.receiveShadow=true;roadMesh.castShadow=false;roadMesh.frustumCulled=false;scene.add(roadMesh);
-const roadMarkGeo=new THREE.BufferGeometry();roadMarkGeo.setAttribute('position',new THREE.Float32BufferAttribute(roadMarkPositions,3));const roadMarks=new THREE.LineSegments(roadMarkGeo,new THREE.LineBasicMaterial({color:0xbcb9a4,transparent:true,opacity:.72}));roadMarks.frustumCulled=false;scene.add(roadMarks);
+// Procedural asphalt grain follows each road; broad shoulder ribbons overlap at junctions to hide seams.
+const asphaltCanvas=document.createElement('canvas');asphaltCanvas.width=256;asphaltCanvas.height=256;
+const asphaltCtx=asphaltCanvas.getContext('2d');asphaltCtx.fillStyle='#eeeeea';asphaltCtx.fillRect(0,0,256,256);
+for(let i=0;i<4800;i++){const v=Math.random(),x=Math.random()*256,y=Math.random()*256;asphaltCtx.fillStyle=v<.42?'rgba(35,39,37,.18)':v<.78?'rgba(95,99,95,.12)':'rgba(255,255,255,.20)';asphaltCtx.fillRect(x,y,Math.random()*2.2+.25,Math.random()*1.6+.25);}
+for(let i=0;i<180;i++){asphaltCtx.strokeStyle='rgba(50,53,50,.09)';asphaltCtx.lineWidth=.6;asphaltCtx.beginPath();const x=Math.random()*256,y=Math.random()*256;asphaltCtx.moveTo(x,y);asphaltCtx.lineTo(x+rand(2,14),y+rand(-1,1));asphaltCtx.stroke();}
+const asphaltTexture=new THREE.CanvasTexture(asphaltCanvas);asphaltTexture.wrapS=asphaltTexture.wrapT=THREE.RepeatWrapping;asphaltTexture.encoding=THREE.sRGBEncoding;asphaltTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());sharedMats.asphalt.map=asphaltTexture;sharedMats.asphalt.needsUpdate=true;
+const shoulderGeo=new THREE.BufferGeometry();shoulderGeo.setAttribute('position',new THREE.Float32BufferAttribute(shoulderPositions,3));shoulderGeo.setIndex(shoulderIndices);shoulderGeo.computeVertexNormals();
+const shoulderMesh=new THREE.Mesh(shoulderGeo,shoulderMat);shoulderMesh.material.side=THREE.DoubleSide;shoulderMesh.receiveShadow=true;shoulderMesh.frustumCulled=false;scene.add(shoulderMesh);
+const roadGeo=new THREE.BufferGeometry();roadGeo.setAttribute('position',new THREE.Float32BufferAttribute(roadPositions,3));roadGeo.setAttribute('uv',new THREE.Float32BufferAttribute(roadUvs,2));roadGeo.setIndex(roadIndices);roadGeo.computeVertexNormals();
+const roadMesh=new THREE.Mesh(roadGeo,sharedMats.asphalt);roadMesh.material.side=THREE.DoubleSide;roadMesh.receiveShadow=true;roadMesh.castShadow=false;roadMesh.frustumCulled=false;scene.add(roadMesh);
+const roadMarkGeo=new THREE.BufferGeometry();roadMarkGeo.setAttribute('position',new THREE.Float32BufferAttribute(roadMarkPositions,3));const roadMarks=new THREE.LineSegments(roadMarkGeo,new THREE.LineBasicMaterial({color:0xd1cbb5,transparent:true,opacity:.84}));roadMarks.frustumCulled=false;scene.add(roadMarks);
+const roadEdgeGeo=new THREE.BufferGeometry();roadEdgeGeo.setAttribute('position',new THREE.Float32BufferAttribute(roadEdgePositions,3));const roadEdges=new THREE.LineSegments(roadEdgeGeo,new THREE.LineBasicMaterial({color:0xc5c2b4,transparent:true,opacity:.50}));roadEdges.frustumCulled=false;scene.add(roadEdges);
 // towns are represented by small clusters; larger centres receive a denser cluster.
 const buildingBoxes=[];const villageLabels=[];
 // Reuse instanced geometry for thousands of town houses instead of issuing a draw call per wall/window.
