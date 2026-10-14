@@ -54,7 +54,7 @@ function heightAt(x,z){
  if(!terrainGrid)return analyticHeightAt(x,z);
  const b=terrainGrid;
  if(x<b.minX||x>b.maxX||z<b.minZ||z>b.maxZ)return analyticHeightAt(x,z);
- const gx=clamp((x-b.minX)/b.stepX,0,b.segX-1e-7),gz=clamp((b.maxZ-z)/b.stepZ,0,b.segZ-1e-7);
+ const gx=clamp((x-b.minX)/b.stepX,0,b.segX-1e-7),gz=clamp((z-b.minZ)/b.stepZ,0,b.segZ-1e-7);
  const ix=Math.floor(gx),iz=Math.floor(gz),u=gx-ix,v=gz-iz,row=b.segX+1;
  const h00=b.heights[iz*row+ix],h01=b.heights[(iz+1)*row+ix],h10=b.heights[iz*row+ix+1],h11=b.heights[(iz+1)*row+ix+1];
  if(u+v<=1)return h00*(1-u-v)+h01*v+h10*u;
