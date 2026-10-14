@@ -138,13 +138,13 @@ function roadBetween(a,b,width=8,marking=true){
   positions.push(lx,yL+.22,lz,rx,yR+.22,rz);shoulders.push(slx,syL+.12,slz,srx,syR+.12,srz);
   uvs.push(q*routeLength/24,0,q*routeLength/24,1);
   if(i<n){const a0=i*2,b0=a0+1,a1=a0+2,b1=a0+3;indices.push(a0,a1,b0,b0,a1,b1);shIndices.push(a0,a1,b0,b0,a1,b1);}
-  if(marking&&prevL&&prevR)roadEdgePositions.push(prevL.x,prevL.y+.30,prevL.z,lx,yL+.30,lz,prevR.x,prevR.y+.30,prevR.z,rx,yR+.30,rz);
+  if(marking&&prevL&&prevR)roadEdgePositions.push(prevL.x,prevL.y+.245,prevL.z,lx,yL+.245,lz,prevR.x,prevR.y+.245,prevR.z,rx,yR+.245,rz);
   prevL={x:lx,y:yL,z:lz};prevR={x:rx,y:yR,z:rz};
  }
  const indexOffset=roadPositions.length/3;roadPositions.push(...positions);roadUvs.push(...uvs);for(const idx of indices)roadIndices.push(indexOffset+idx);
  const shoulderOffset=shoulderPositions.length/3;shoulderPositions.push(...shoulders);for(const idx of shIndices)shoulderIndices.push(shoulderOffset+idx);
  roadSegments.push({a,b,width});
- if(marking&&len>80){for(let d=14;d<len-5;d+=18){const q=d/len,px=lerp(a.x,b.x,q),pz=lerp(a.z,b.z,q),dy=heightAt(px,pz)+.32;roadMarkPositions.push(px-ux*2.0,dy,pz-uz*2.0,px+ux*2.0,dy,pz+uz*2.0);}}
+ if(marking&&len>80){for(let d=14;d<len-5;d+=18){const q=d/len,px=lerp(a.x,b.x,q),pz=lerp(a.z,b.z,q),dy=heightAt(px,pz)+.245;roadMarkPositions.push(px-ux*2.0,dy,pz-uz*2.0,px+ux*2.0,dy,pz+uz*2.0);}}
 }
 function buildRoadNetwork(){const connected=new Set();for(const t of towns){const nearest=towns.map(o=>({o,d:dist(t.x,t.z,o.x,o.z)})).filter(v=>v.o!==t).sort((a,b)=>a.d-b.d).slice(0,2);for(const item of nearest){const ids=[Math.min(t.id,item.o.id),Math.max(t.id,item.o.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(t,item.o,dist(t.x,t.z,item.o.x,item.o.z)>8500?10:7,true);}}}
  const named=[['Brescia','Mantova'],['Brescia','Desenzano del Garda'],['Brescia','Iseo'],['Brescia','Rovato'],['Brescia','Lumezzane'],['Montichiari','Castiglione delle Stiviere'],['Montichiari','Mantova'],['Chiari','Orzinuovi'],['Mantova','Suzzara'],['Mantova','Ostiglia'],['Iseo','Pisogne'],['Gardone Val Trompia','Lumezzane']];for(const [a,b] of named){const A=townByName[a],B=townByName[b];if(A&&B){const ids=[Math.min(A.id,B.id),Math.max(A.id,B.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(A,B,11,true);}}}}
@@ -308,8 +308,29 @@ const homeOptions=towns;const homeTown=choose(homeOptions);const homeAngle=rand(
 // A small belt of trees around the starting home makes the ground legible at walking distance.
 for(let i=0;i<190;i++){const a=rand(0,Math.PI*2),r=rand(28,260);const tx=homeX+Math.cos(a)*r,tz=homeZ+Math.sin(a)*r;if(dist(tx,tz,homeX,homeZ)>24)addTreeAt(tx,tz,rand(.75,1.35));}for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.instanceMatrix.needsUpdate=true;m.count=treeData.length;}
 // Generated 2002-style town-entry signs on the regional roads.
-function makeRoadSign(x,z,name,province='BS',angle=0){const y=heightAt(x,z);const group=new THREE.Group();group.position.set(x,y,z);group.rotation.y=angle;scene.add(group);cyl(group,.065,.085,2.55,sharedMats.concrete,0,1.27,0,0,0,0,8);box(group,3.85,.86,.14,sharedMats.white,0,2.54,0);const c=document.createElement('canvas');c.width=512;c.height=116;const cx=c.getContext('2d');cx.fillStyle='#f1efe1';cx.fillRect(0,0,512,116);cx.strokeStyle='#212824';cx.lineWidth=7;cx.strokeRect(4,4,504,108);cx.fillStyle='#202721';cx.textAlign='center';cx.textBaseline='middle';cx.font=(name.length>18?'bold 28px Arial':'bold 34px Arial');cx.fillText(name.toUpperCase(),256,48,480);cx.font='22px Arial';cx.fillStyle='#59675a';cx.fillText(province==='BS'?'PROVINCIA DI BRESCIA':'PROVINCIA DI MANTOVA',256,86);const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;const face=new THREE.Mesh(new THREE.PlaneGeometry(3.65,.66),new THREE.MeshStandardMaterial({map:tex,roughness:.78,side:THREE.DoubleSide}));face.position.set(0,2.54,.078);group.add(face);return group;}
-for(const t of towns.filter(t=>t.pop>5000)){const nearest=towns.filter(o=>o!==t).sort((a,b)=>dist(t.x,t.z,a.x,a.z)-dist(t.x,t.z,b.x,b.z))[0];const angle=nearest?Math.atan2(nearest.x-t.x,nearest.z-t.z):0;makeRoadSign(t.x+Math.cos(angle+1.2)*55,t.z+Math.sin(angle+1.2)*55,t.name,t.province,angle);}
+function makeRoadSign(x,z,name,province='BS',angle=0){const y=heightAt(x,z);const group=new THREE.Group();group.position.set(x,y,z);group.rotation.y=angle;scene.add(group);cyl(group,.065,.085,2.55,sharedMats.concrete,0,1.27,0,0,0,0,8);box(group,2.35,.64,.12,sharedMats.white,0,2.54,0);const c=document.createElement('canvas');c.width=512;c.height=116;const cx=c.getContext('2d');cx.fillStyle='#f1efe1';cx.fillRect(0,0,512,116);cx.strokeStyle='#212824';cx.lineWidth=7;cx.strokeRect(4,4,504,108);cx.fillStyle='#202721';cx.textAlign='center';cx.textBaseline='middle';cx.font=(name.length>18?'bold 28px Arial':'bold 34px Arial');cx.fillText(name.toUpperCase(),256,48,480);cx.font='22px Arial';cx.fillStyle='#59675a';cx.fillText(province==='BS'?'PROVINCIA DI BRESCIA':'PROVINCIA DI MANTOVA',256,86);const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;const face=new THREE.Mesh(new THREE.PlaneGeometry(2.18,.46),new THREE.MeshStandardMaterial({map:tex,roughness:.78,side:THREE.DoubleSide}));face.position.set(0,2.54,.078);group.add(face);return group;}
+// Place the municipal signs on the actual approach roads at the settlement edge, not randomly beside the village.
+const entryCount=towns.filter(t=>t.pop>5000).length;
+const speedCanvas=document.createElement('canvas');speedCanvas.width=256;speedCanvas.height=256;
+const speedCtx=speedCanvas.getContext('2d');speedCtx.clearRect(0,0,256,256);speedCtx.beginPath();speedCtx.arc(128,128,116,0,Math.PI*2);speedCtx.fillStyle='#f7f6ef';speedCtx.fill();speedCtx.lineWidth=22;speedCtx.strokeStyle='#c32f2b';speedCtx.stroke();
+speedCtx.fillStyle='#141818';speedCtx.textAlign='center';speedCtx.textBaseline='middle';speedCtx.font='bold 98px Arial';speedCtx.fillText('50',128,130);
+const speedTexture=new THREE.CanvasTexture(speedCanvas);speedTexture.encoding=THREE.sRGBEncoding;
+const speedMaterial=new THREE.MeshStandardMaterial({map:speedTexture,transparent:true,alphaTest:.08,roughness:.7,side:THREE.DoubleSide});
+const speedPlates=new THREE.InstancedMesh(new THREE.CircleGeometry(.43,32),speedMaterial,entryCount);
+const speedPosts=new THREE.InstancedMesh(new THREE.CylinderGeometry(.035,.055,2.2,10),sharedMats.concrete,entryCount);
+const speedDummy=new THREE.Object3D();let speedCount=0;
+for(const t of towns.filter(t=>t.pop>5000)){
+ const nearest=towns.filter(o=>o!==t).sort((a,b)=>dist(t.x,t.z,a.x,a.z)-dist(t.x,t.z,b.x,b.z))[0];
+ const angle=nearest?Math.atan2(nearest.x-t.x,nearest.z-t.z):0,radius=townUrbanRadius(t)*.82;
+ // The approach road runs along the bearing to the nearest settlement; signs sit just outside its shoulder.
+ const signX=t.x+Math.sin(angle)*radius+Math.cos(angle)*7,signZ=t.z+Math.cos(angle)*radius-Math.sin(angle)*7;
+ makeRoadSign(signX,signZ,t.name,t.province,angle);
+ const sx=signX+Math.cos(angle)*3.0,sz=signZ-Math.sin(angle)*3.0,sy=heightAt(sx,sz);
+ speedDummy.position.set(sx,sy+1.10,sz);speedDummy.rotation.set(0,angle,0);speedDummy.scale.set(1,1,1);speedDummy.updateMatrix();speedPosts.setMatrixAt(speedCount,speedDummy.matrix);
+ speedDummy.position.set(sx,sy+1.87,sz);speedDummy.updateMatrix();speedPlates.setMatrixAt(speedCount,speedDummy.matrix);speedCount++;
+}
+speedPosts.count=speedCount;speedPosts.instanceMatrix.needsUpdate=true;scene.add(speedPosts);
+speedPlates.count=speedCount;speedPlates.instanceMatrix.needsUpdate=true;scene.add(speedPlates);
 
 const streetNames=['VIA ROMA','VIA XX SETTEMBRE','VIA GIUSEPPE GARIBALDI','VIA DANTE ALIGHIERI','VIA MARCONI','VIA DELLA STAZIONE','VIA MAZZINI','VIA MATTEOTTI','VIA SAN ROCCO','VIA DEL MERCATO','VIA EUROPA','VIA DEI TIGLI','VIA DELLA REPUBBLICA','VIA SAN GIOVANNI','VIA DELLE SCUOLE','VIA ALPINI'];
 const streetSignMax=towns.filter(t=>t.pop>=5000).reduce((n,t)=>n+(t.pop>50000?4:t.pop>15000?3:t.pop>8000?2:1),0);
