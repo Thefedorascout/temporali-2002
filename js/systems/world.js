@@ -21,7 +21,7 @@ const grassCanvas=document.createElement('canvas');grassCanvas.width=512;grassCa
 const grassCtx=grassCanvas.getContext('2d');grassCtx.fillStyle='#d9d6b8';grassCtx.fillRect(0,0,256,256);
 for(let i=0;i<17000;i++){const x=Math.random()*512,y=Math.random()*512;const v=Math.random();grassCtx.fillStyle=v<.36?'rgba(69,99,51,.24)':v<.68?'rgba(166,146,91,.19)':'rgba(255,248,220,.27)';grassCtx.fillRect(x,y,Math.random()*2.8+.35,Math.random()*2.8+.35);}
 for(let i=0;i<1100;i++){grassCtx.strokeStyle=Math.random()<.5?'rgba(74,101,54,.26)':'rgba(190,172,123,.20)';grassCtx.lineWidth=.65;grassCtx.beginPath();const x=Math.random()*512,y=Math.random()*512;grassCtx.moveTo(x,y);grassCtx.lineTo(x+rand(1,5),y-rand(1,5));grassCtx.stroke();}
-const grassTexture=new THREE.CanvasTexture(grassCanvas);grassTexture.wrapS=grassTexture.wrapT=THREE.RepeatWrapping;grassTexture.repeat.set(2200,2600);grassTexture.encoding=THREE.sRGBEncoding;grassTexture.anisotropy= Math.min(8,renderer.capabilities.getMaxAnisotropy());groundMat.map=grassTexture;
+const grassTexture=new THREE.CanvasTexture(grassCanvas);grassTexture.wrapS=grassTexture.wrapT=THREE.RepeatWrapping;grassTexture.repeat.set(420,500);grassTexture.encoding=THREE.sRGBEncoding;grassTexture.anisotropy= Math.min(8,renderer.capabilities.getMaxAnisotropy());groundMat.map=grassTexture;
 function inLake(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;const iseo=((x-10600)/1050)**2+((z-30500)/6900)**2<1;if(!(garda||iseo))return false;const near=nearestElevationAnchor(x,z);return !(near.town&&near.town.kind==='lake'&&near.distance<townUrbanRadius(near.town)*.9);}
 function lakeLevel(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;return garda?65:185;}
 function rawTerrainHeight(x,z){
