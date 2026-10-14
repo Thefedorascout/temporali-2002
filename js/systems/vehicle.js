@@ -13,7 +13,7 @@ const lampMat=new THREE.MeshStandardMaterial({color:0xf8f1df,emissive:0xa79673,e
 const rearLamp=new THREE.MeshStandardMaterial({color:0x9d2921,emissive:0x280807,roughness:.28});
 const indicatorMat=new THREE.MeshStandardMaterial({color:0xe5a13f,emissive:0x6f3210,emissiveIntensity:.08,roughness:.27});
 const chromeMat=new THREE.MeshStandardMaterial({color:0x9a9d98,metalness:.56,roughness:.34});
-const multiplaGlass=new THREE.MeshStandardMaterial({color:0x315761,roughness:.2,metalness:.08,transparent:true,opacity:.94,side:THREE.DoubleSide});
+const multiplaGlass=new THREE.MeshStandardMaterial({color:0x65818a,roughness:.12,metalness:.02,transparent:true,opacity:.32,depthWrite:false,side:THREE.DoubleSide});
 const glassRubber=new THREE.MeshStandardMaterial({color:0x1d2425,roughness:.78});
 const redTail=new THREE.MeshStandardMaterial({color:0xb9342b,roughness:.3,emissive:0x200504});
 const tyreMat=new THREE.MeshStandardMaterial({color:0x171918,roughness:.98});
@@ -25,10 +25,10 @@ function carLoft(parent,sections,mat){const profile=[[0,-.5],[.58,-.5],[.82,-.46
  for(let r=0;r<sections.length-1;r++)for(let j=0;j<ring;j++){const a=r*ring+j,b=r*ring+(j+1)%ring,c=(r+1)*ring+j,d=(r+1)*ring+(j+1)%ring;idx.push(a,b,c,b,d,c);}
  const startCenter=verts.length/3;verts.push(0,(sections[0].bottom+sections[0].top)/2,sections[0].z);const endCenter=verts.length/3;const last=sections[sections.length-1];verts.push(0,(last.bottom+last.top)/2,last.z);for(let j=0;j<ring;j++){idx.push(startCenter,(j+1)%ring,j);const a=(sections.length-1)*ring+j,b=(sections.length-1)*ring+(j+1)%ring;idx.push(endCenter,a,b);}
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();const mesh=new THREE.Mesh(geo,mat);mesh.material.side=THREE.DoubleSide;mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+function carBeam(a,b,thickness,depth,material){const start=new THREE.Vector3(a[0],a[1],a[2]),end=new THREE.Vector3(b[0],b[1],b[2]),axis=end.clone().sub(start),length=axis.length();const mesh=new THREE.Mesh(new THREE.BoxGeometry(length,thickness,depth),material);mesh.position.copy(start).add(end).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),axis.normalize());mesh.castShadow=true;mesh.receiveShadow=true;carRoot.add(mesh);return mesh;}
 // The lower shell is broad and rounded, with an unusually short, high bonnet.
 carLoft(carRoot,[{z:-2.02,w:.72,bottom:.47,top:1.34},{z:-1.88,w:.87,bottom:.42,top:1.52},{z:-1.54,w:.99,bottom:.40,top:1.58},{z:-1.12,w:1.035,bottom:.39,top:1.57},{z:-.45,w:1.045,bottom:.39,top:1.56},{z:.45,w:1.035,bottom:.40,top:1.55},{z:1.15,w:.98,bottom:.43,top:1.52},{z:1.65,w:.87,bottom:.47,top:1.43},{z:1.93,w:.70,bottom:.54,top:1.22}],carPaint);
-// Very tall cabin/glasshouse, a defining feature of the first-series Multipla.
-carLoft(carRoot,[{z:-1.46,w:.72,bottom:1.49,top:1.67},{z:-1.26,w:.82,bottom:1.50,top:1.98},{z:-.91,w:.90,bottom:1.51,top:2.55},{z:-.57,w:.935,bottom:1.50,top:2.68},{z:.20,w:.94,bottom:1.50,top:2.70},{z:.76,w:.92,bottom:1.48,top:2.65},{z:1.12,w:.88,bottom:1.45,top:2.50},{z:1.43,w:.80,bottom:1.36,top:2.07},{z:1.58,w:.73,bottom:1.26,top:1.73}],carPaint);
+// The cabin is intentionally open behind the glazing. The old closed loft put a solid red skin directly behind the windows, blocking the view from the driver's seat.
 // The roof edge is nearly flat and thick, with soft corners rather than a pointed van roof.
 ellipsoid(carRoot,.88,.085,1.02,carPaint,0,2.64,.10,0,0,0,2);
 // Broad front windscreen and rear hatch glass follow the steep, unusual cabin angles.
@@ -55,6 +55,18 @@ for(const side of [-1,1]){
  // Front and rear wheel arch lips use low rounded moulding segments.
  for(const wz of [-1.28,1.25]){const arch=new THREE.Mesh(new THREE.TorusGeometry(.445,.052,7,28),carDarkPaint);arch.position.set(side*1.025,.59,wz);arch.rotation.y=Math.PI/2;arch.scale.set(.74,.74/.62,.74);arch.castShadow=true;carRoot.add(arch);}
 }
+// Painted/black structural rails frame the real glass panes; the cabin itself remains open for the in-car view.
+box(carRoot,1.64,.075,.09,carPaint,0,2.52,-.88);
+box(carRoot,1.56,.075,.09,carPaint,0,1.70,-1.48);
+for(const side of [-1,1]){
+ carBeam([side*.80,2.50,-.87],[side*.77,1.72,-1.48],.075,.075,carPaint);
+ box(carRoot,.065,.075,1.88,carPaint,side*.86,2.52,.02);
+ carBeam([side*.83,2.48,-.85],[side*.83,1.73,-1.22],.065,.07,glassRubber);
+ carBeam([side*.84,2.30,1.28],[side*.84,1.62,1.28],.065,.07,glassRubber);
+ carBeam([side*.74,2.12,1.39],[side*.74,1.75,1.52],.07,.07,carPaint);
+}
+box(carRoot,1.54,.07,.08,carPaint,0,2.12,1.39);
+box(carRoot,1.46,.07,.08,carPaint,0,1.74,1.52);
 // Multipla's double-height face: little lamps atop the nose, larger round headlights, narrow upper slot and low grille.
 ellipsoid(carRoot,1.03,.19,.14,bumperMat,0,.68,-1.99);
 ellipsoid(carRoot,1.00,.11,.13,carDarkPaint,0,.86,-2.04);
