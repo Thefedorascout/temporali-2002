@@ -624,9 +624,27 @@ function makeForests(){
  }
 }
 makeForests();
-// a few roadside utility poles sell the early-2000s countryside silhouette
-function makePole(x,z){const y=heightAt(x,z);cyl(scene,.13,.18,7,new THREE.MeshStandardMaterial({color:0x514c43}),x,y+3.5,z,0,0,0,7);box(scene,2.2,.16,.15,sharedMats.roof2,x,y+6.4,z);}
-for(let i=0;i<roadSegments.length;i+=4){const s=roadSegments[i];for(const q of [.22,.72]){const x=lerp(s.a.x,s.b.x,q),z=lerp(s.a.z,s.b.z,q);if(Math.random()<.48)makePole(x+rand(-12,12),z+rand(-12,12));}}
+// Batch roadside utility poles into two instanced meshes instead of creating hundreds of individual objects.
+const poleSpots=[];
+for(let i=0;i<roadSegments.length;i+=4){
+ const segment=roadSegments[i];
+ for(const q of [.22,.72]){
+  const x=lerp(segment.a.x,segment.b.x,q),z=lerp(segment.a.z,segment.b.z,q);
+  if(Math.random()<.48)poleSpots.push({x:x+rand(-12,12),z:z+rand(-12,12)});
+ }
+}
+if(poleSpots.length){
+ const poleMat=new THREE.MeshStandardMaterial({color:0x514c43,roughness:1});
+ const poleMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(.13,.18,7,7),poleMat,poleSpots.length);
+ const crossArmMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(2.2,.16,.15),sharedMats.roof2,poleSpots.length);
+ const poleDummy=new THREE.Object3D();
+ for(let i=0;i<poleSpots.length;i++){
+  const spot=poleSpots[i],y=heightAt(spot.x,spot.z);
+  poleDummy.position.set(spot.x,y+3.5,spot.z);poleDummy.rotation.set(0,0,0);poleDummy.scale.set(1,1,1);poleDummy.updateMatrix();poleMesh.setMatrixAt(i,poleDummy.matrix);
+  poleDummy.position.y=y+6.4;poleDummy.updateMatrix();crossArmMesh.setMatrixAt(i,poleDummy.matrix);
+ }
+ for(const mesh of [poleMesh,crossArmMesh]){mesh.count=poleSpots.length;mesh.instanceMatrix.needsUpdate=true;mesh.castShadow=false;mesh.receiveShadow=false;scene.add(mesh);}
+}
 // The interior is deliberately furnished like a modest 2002 home.
 const startZoneHomes={
  'val-sabbia':{town:'Idro',minOffset:90,maxOffset:175},
