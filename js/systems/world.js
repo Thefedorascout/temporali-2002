@@ -57,11 +57,90 @@ function smoothedTownCorrection(x,z){
  const q=clamp(1-nearest/14500,0,1),fade=q*q*(3-2*q);
  return average*fade;
 }
-const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:700,segZ:820};
+const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:900,segZ:1050};
 let terrainGrid=null;
+const GRADE_BIN_SIZE=320,terrainGradePads=[],terrainGradeBins=new Map();
+function ungradedTerrainHeightAt(x,z){
+ if(inLake(x,z))return lakeLevel(x,z);
+ return Math.max(2,rawTerrainHeight(x,z)+smoothedTownCorrection(x,z));
+}
+function registerGradePad(t,lx,lz,angle,halfW,halfD,kind='building'){
+ const p=localPoint(t,lx,lz,angle),footprint=Math.hypot(halfW,halfD)+5;
+ const innerRadius=Math.max(kind==='piazza'?64:48,footprint),outerRadius=innerRadius+52;
+ terrainGradePads.push({x:p.x,z:p.z,innerRadius,outerRadius,level:0,kind});
+}
+function buildTerrainGradePads(){
+ for(const t of towns){
+  const angle=(t.id*.61803398875%1)*Math.PI;
+  const plazaSize=t.pop>100000?135:t.pop>50000?108:t.pop>20000?88:t.pop>8000?70:48;
+  registerGradePad(t,0,0,angle,plazaSize*.5,plazaSize*.39,'piazza');
+  const districtSize=t.pop>100000?245:t.pop>50000?185:t.pop>20000?145:t.pop>8000?102:70;
+  const churchScale=t.pop>50000?1.16:t.pop>10000?1:.82;
+  registerGradePad(t,-districtSize*.56,-districtSize*.28,angle,6*churchScale,11.5*churchScale);
+  if(t.pop>5000){const scale=t.pop>50000?1.12:t.pop>10000?1:.86;registerGradePad(t,districtSize*.57,-districtSize*.18,angle,8.5*scale,6*scale);}
+  if(t.pop>6000){const scale=t.pop>50000?1.25:t.pop>20000?1.05:.88;registerGradePad(t,districtSize*.56,districtSize*.76,angle,11*scale,6*scale);}
+  if(t.pop>10000){
+   const scale=t.pop>50000?1.05:.82,count=t.pop>50000?6:t.pop>20000?5:3;
+   registerGradePad(t,-districtSize*.5,districtSize*.72,angle,((count-1)*2.3+1.85)*scale,6*scale);
+  }
+  if(t.pop>20000){
+   const scale=t.pop>100000?1.08:.92;registerGradePad(t,-districtSize*1.08,districtSize*.78,angle,11*scale,6*scale);
+   const marketScale=t.pop>100000?.95:.78,count=t.pop>50000?6:5;
+   registerGradePad(t,districtSize*.98,districtSize*1.08,angle,((count-1)*2.3+1.85)*marketScale,6*marketScale);
+   registerGradePad(t,districtSize*1.05,districtSize*.5,angle,31,24,'park');
+   const blocks=t.pop>100000?10:4;
+   for(let i=0;i<blocks;i++){
+    const ox=(i%5-2)*43+districtSize*1.15,oz=(Math.floor(i/5)-.5)*46;
+    const bw=18+((i+1)%3)*3,bd=16+((i+2)%2)*4;
+    registerGradePad(t,ox,oz,angle,bw*.5,bd*.5,'block');
+   }
+  }
+  if(t.pop>100000)registerGradePad(t,districtSize*1.08,-districtSize*.82,angle,5.4,10.35);
+ }
+ // Choose a safe terrace level from the highest natural ground around the whole footprint and nearby mesh cells.
+ // That way the low side is filled rather than allowing the terrain to poke through a plaza edge.
+ const stepX=(TERRAIN_BOUNDS.maxX-TERRAIN_BOUNDS.minX)/TERRAIN_BOUNDS.segX,stepZ=(TERRAIN_BOUNDS.maxZ-TERRAIN_BOUNDS.minZ)/TERRAIN_BOUNDS.segZ;
+ const supportExtra=Math.hypot(stepX,stepZ)*1.55+8;
+ for(const pad of terrainGradePads){
+  const radius=pad.innerRadius+supportExtra;let maxHeight=-Infinity;
+  maxHeight=Math.max(maxHeight,ungradedTerrainHeightAt(pad.x,pad.z));
+  for(let ring=1;ring<=5;ring++)for(let i=0;i<32;i++){
+   const d=radius*ring/5,a=i*Math.PI*2/32;
+   maxHeight=Math.max(maxHeight,ungradedTerrainHeightAt(pad.x+Math.cos(a)*d,pad.z+Math.sin(a)*d));
+  }
+  pad.level=maxHeight+.35;
+  const minX=Math.floor((pad.x-pad.outerRadius)/GRADE_BIN_SIZE),maxX=Math.floor((pad.x+pad.outerRadius)/GRADE_BIN_SIZE);
+  const minZ=Math.floor((pad.z-pad.outerRadius)/GRADE_BIN_SIZE),maxZ=Math.floor((pad.z+pad.outerRadius)/GRADE_BIN_SIZE);
+  for(let ix=minX;ix<=maxX;ix++)for(let iz=minZ;iz<=maxZ;iz++){
+   const key=ix+','+iz;if(!terrainGradeBins.has(key))terrainGradeBins.set(key,[]);
+   terrainGradeBins.get(key).push(pad);
+  }
+ }
+}
+buildTerrainGradePads();
+function applyTerrainGrading(x,z,base){
+ if(inLake(x,z))return base;
+ const pads=terrainGradeBins.get(Math.floor(x/GRADE_BIN_SIZE)+','+Math.floor(z/GRADE_BIN_SIZE));
+ if(!pads)return base;
+ let totalWeight=0,weightedLevel=0,inside=null,insideScore=Infinity;
+ for(const pad of pads){
+  const d=Math.hypot(x-pad.x,z-pad.z);if(d>=pad.outerRadius)continue;
+  if(d<=pad.innerRadius){
+   const score=d/pad.innerRadius;
+   if(score<insideScore){inside=pad;insideScore=score;}
+   continue;
+  }
+  const q=clamp((d-pad.innerRadius)/(pad.outerRadius-pad.innerRadius),0,1);
+  const smooth=q*q*(3-2*q),weight=1-smooth;
+  if(weight>0){totalWeight+=weight;weightedLevel+=pad.level*weight;}
+ }
+ if(inside)return inside.level;
+ if(totalWeight<=0)return base;
+ return lerp(base,weightedLevel/totalWeight,clamp(totalWeight,0,1));
+}
 function analyticHeightAt(x,z){
- const base=rawTerrainHeight(x,z);if(inLake(x,z))return lakeLevel(x,z);
- return Math.max(2,base+smoothedTownCorrection(x,z));
+ const base=ungradedTerrainHeightAt(x,z);
+ return applyTerrainGrading(x,z,base);
 }
 // Roads and props query the same triangles as the rendered heightmap, avoiding buried objects on steep terrain.
 function heightAt(x,z){
@@ -365,7 +444,7 @@ function makeVillage(){for(const t of towns){const rnd=seededTownRandom(t.id+200
  if(t.kind==='plain'&&t.province==='MN'){for(let i=0;i<2;i++){const p=localPoint(t,(rnd()-.5)*r*2.3,(rnd()-.5)*r*2.2,angle),y=heightAt(p.x,p.z),w=rand(18,34),d=rand(24,48);box(scene,w,5,d,sharedMats.wall2,p.x,y+2.5,p.z);box(scene,w+1,.35,d+1,sharedMats.roof2,p.x,y+5.05,p.z);}}
  }}
 const civicGroups=[];
-function placeCivic(t,lx,lz,angle){const p=localPoint(t,lx,lz,angle);const g=new THREE.Group();g.position.set(p.x,heightAt(p.x,p.z),p.z);g.rotation.y=-angle;civicGroups.push(g);scene.add(g);return g;}
+function placeCivic(t,lx,lz,angle){const p=localPoint(t,lx,lz,angle);const g=new THREE.Group();g.position.set(p.x,analyticHeightAt(p.x,p.z),p.z);g.rotation.y=-angle;civicGroups.push(g);scene.add(g);return g;}
 function civicBox(g,w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){const m=box(g,w,h,d,mat,x,y,z,rx,ry,rz);m.castShadow=(mat!==sharedMats.glass&&mat!==sharedMats.black);m.receiveShadow=true;return m;}
 const civicPlaster=new THREE.MeshStandardMaterial({color:0xd5cbbb,roughness:.92}),civicWarm=new THREE.MeshStandardMaterial({color:0xbda88d,roughness:.94}),civicRoof=new THREE.MeshStandardMaterial({color:0x8d4f3c,roughness:.95}),civicDarkRoof=new THREE.MeshStandardMaterial({color:0x625951,roughness:.92}),civicGlass=new THREE.MeshStandardMaterial({color:0x273f47,roughness:.24,metalness:.05}),civicStone=new THREE.MeshStandardMaterial({color:0x968a76,roughness:1}),civicPavement=new THREE.MeshStandardMaterial({color:0x8f928a,roughness:1}),civicInnerPavement=new THREE.MeshStandardMaterial({color:0xb7b4a8,roughness:1}),civicWater=new THREE.MeshStandardMaterial({color:0x477d85,roughness:.22,metalness:.12}),civicParkMat=new THREE.MeshStandardMaterial({color:0x82916f,roughness:1}),flagGreen=new THREE.MeshStandardMaterial({color:0x337c4c}),flagWhite=new THREE.MeshStandardMaterial({color:0xe8e2d1}),flagRed=new THREE.MeshStandardMaterial({color:0xb8453c}),marketRed=new THREE.MeshStandardMaterial({color:0xa64d3e,roughness:.78}),marketCream=new THREE.MeshStandardMaterial({color:0xdccda8,roughness:.84}),marketGreen=new THREE.MeshStandardMaterial({color:0x647c59,roughness:.84});
 function civicWindowGrid(g,w,y,z,count=5,wallW=1){for(let i=0;i<count;i++){const x=-w/2+(i+.5)*w/count;civicBox(g,wallW,.92,.075,civicGlass,x,y,z);civicBox(g,wallW+.1,.07,.09,civicStone,x,y,z-.045);}}
@@ -403,10 +482,52 @@ function addTownLandmarks(){for(const t of towns){const angle=(t.id*0.6180339887
  if(t.pop>20000){const park=placeCivic(t,sz*1.05,sz*.5,angle);const grass=new THREE.MeshStandardMaterial({color:0x78916b,roughness:1});civicBox(park,60, .08,45,grass,0,.05,0);for(let i=0;i<7;i++){const x=(i-3)*7;cyl(park,.11,.16,4.4,sharedMats.treeTrunk,x,2.2,-13,0,0,0,7);for(const [dx,dy,dz,sc] of [[0,4.2,0,1.55],[-.65,3.8,.12,1.0],[.65,4.05,-.1,1.05]])ellipsoid(park,sc,sc,sc,sharedMats.leaf, x+dx,dy+0.5,-13+dz,0,0,0,1);}
   const n=t.pop>100000?10:4;for(let i=0;i<n;i++){const ox=(i%5-2)*43+sz*1.15,oz=(Math.floor(i/5)-.5)*46;const bg=placeCivic(t,ox,oz,angle);const bw=18+((i+1)%3)*3,bd=16+((i+2)%2)*4,bh=12+(i%3)*4;civicBox(bg,bw,bh,bd,civicWarm,0,bh/2,0);civicBox(bg,bw+.8,.5,bd+.8,civicDarkRoof,0,bh+.25,0);for(let floor=0;floor<Math.floor(bh/3.4);floor++)for(let col=0;col<4;col++)civicBox(bg,1.4,1.15,.075,civicGlass,-bw*.37+col*bw*.245,2+floor*3.4,-bd/2-.05);buildingBoxes.push({x:bg.position.x,z:bg.position.z,r:Math.max(bw,bd)*.55});}}
  }}
-function mergeCivicGroups(){for(const group of civicGroups){const buckets=new Map(),oldMeshes=group.children.filter(c=>c.isMesh);for(const child of oldMeshes){child.updateMatrix();const mat=Array.isArray(child.material)?child.material[0]:child.material;let b=buckets.get(mat);if(!b){b={mat,positions:[],normals:[],indices:[],count:0,cast:false,receive:false};buckets.set(mat,b);}const geo=child.geometry.clone();geo.applyMatrix4(child.matrix);if(!geo.getAttribute('normal'))geo.computeVertexNormals();const pa=geo.getAttribute('position'),na=geo.getAttribute('normal'),offset=b.positions.length/3;for(let i=0;i<pa.count;i++){b.positions.push(pa.getX(i),pa.getY(i),pa.getZ(i));b.normals.push(na.getX(i),na.getY(i),na.getZ(i));}if(geo.index){for(const id of geo.index.array)b.indices.push(offset+id);}else for(let i=0;i<pa.count;i++)b.indices.push(offset+i);b.cast=b.cast||child.castShadow;b.receive=b.receive||child.receiveShadow;geo.dispose();}
+function addCivicFoundations(){
+ const foundationMat=new THREE.MeshStandardMaterial({color:0x837b6d,roughness:.98,side:THREE.DoubleSide});
+ for(const group of civicGroups){
+  group.updateMatrixWorld(true);let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  const children=group.children.filter(c=>c.isMesh);
+  for(const child of children){
+   child.updateMatrix();if(!child.geometry.boundingBox)child.geometry.computeBoundingBox();
+   const b=child.geometry.boundingBox.clone().applyMatrix4(child.matrix);
+   minX=Math.min(minX,b.min.x);maxX=Math.max(maxX,b.max.x);minZ=Math.min(minZ,b.min.z);maxZ=Math.max(maxZ,b.max.z);
+  }
+  if(!Number.isFinite(minX)||maxX-minX<1||maxZ-minZ<1)continue;
+  const halfW=(maxX-minX)*.5+1.2,halfD=(maxZ-minZ)*.5+1.2,cx=(minX+maxX)*.5,cz=(minZ+maxZ)*.5;
+  const sides=[
+   {a:{x:cx-halfW,z:cz-halfD},b:{x:cx+halfW,z:cz-halfD},nx:0,nz:-1},
+   {a:{x:cx+halfW,z:cz+halfD},b:{x:cx-halfW,z:cz+halfD},nx:0,nz:1},
+   {a:{x:cx-halfW,z:cz+halfD},b:{x:cx-halfW,z:cz-halfD},nx:-1,nz:0},
+   {a:{x:cx+halfW,z:cz-halfD},b:{x:cx+halfW,z:cz+halfD},nx:1,nz:0}
+  ];
+  for(const side of sides){
+   const length=Math.hypot(side.b.x-side.a.x,side.b.z-side.a.z),segments=Math.max(1,Math.ceil(length/12)),verts=[],indices=[];let maxDrop=0;
+   const top=.035;
+   for(let i=0;i<=segments;i++){
+    const q=i/segments,lx=lerp(side.a.x,side.b.x,q),lz=lerp(side.a.z,side.b.z,q);
+    const wx=group.position.x+lx*Math.cos(-group.rotation.y)+lz*Math.sin(-group.rotation.y);
+    const wz=group.position.z-lx*Math.sin(-group.rotation.y)+lz*Math.cos(-group.rotation.y);
+    const sampleX=wx+side.nx*5*Math.cos(-group.rotation.y)+side.nz*5*Math.sin(-group.rotation.y);
+    const sampleZ=wz-side.nx*5*Math.sin(-group.rotation.y)+side.nz*5*Math.cos(-group.rotation.y);
+    const groundY=heightAt(sampleX,sampleZ),drop=group.position.y-groundY;maxDrop=Math.max(maxDrop,drop);
+    const bottom=Math.min(-.4,groundY-group.position.y-.35);
+    verts.push(lx,top,lz,lx,bottom,lz);
+   }
+   // On level sites use only a modest foundation curb; on slopes the same skirt becomes a retaining face.
+   if(maxDrop<1.0){
+    for(let i=0;i<=segments;i++){verts[i*6+1]=top;verts[i*6+4]=Math.min(-.28,verts[i*6+4]);}
+   }
+   for(let i=0;i<segments;i++){const a=i*2,b=a+1,c=a+2,d=a+3;indices.push(a,c,b,b,c,d);}
+   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(indices);geo.computeVertexNormals();
+   const wall=new THREE.Mesh(geo,foundationMat);wall.castShadow=true;wall.receiveShadow=true;group.add(wall);
+  }
+ }
+}
+function mergeCivicGroups(){for(const group of civicGroups){}const buckets=new Map(),oldMeshes=group.children.filter(c=>c.isMesh);for(const child of oldMeshes){child.updateMatrix();const mat=Array.isArray(child.material)?child.material[0]:child.material;let b=buckets.get(mat);if(!b){b={mat,positions:[],normals:[],indices:[],count:0,cast:false,receive:false};buckets.set(mat,b);}const geo=child.geometry.clone();geo.applyMatrix4(child.matrix);if(!geo.getAttribute('normal'))geo.computeVertexNormals();const pa=geo.getAttribute('position'),na=geo.getAttribute('normal'),offset=b.positions.length/3;for(let i=0;i<pa.count;i++){b.positions.push(pa.getX(i),pa.getY(i),pa.getZ(i));b.normals.push(na.getX(i),na.getY(i),na.getZ(i));}if(geo.index){for(const id of geo.index.array)b.indices.push(offset+id);}else for(let i=0;i<pa.count;i++)b.indices.push(offset+i);b.cast=b.cast||child.castShadow;b.receive=b.receive||child.receiveShadow;geo.dispose();}
  for(const child of oldMeshes)group.remove(child);for(const b of buckets.values()){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.positions,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.normals,3));geo.setIndex(b.indices);const m=new THREE.Mesh(geo,b.mat);m.castShadow=b.cast;m.receiveShadow=b.receive;group.add(m);}}}
 makeVillage();
 addTownLandmarks();
+addCivicFoundations();
 mergeCivicGroups();
 instWalls.count=houseCount;instRoofs.count=houseCount;instDoors.count=houseCount;instWindows.count=windowCount;instShutters.count=shutterCount;instChimneys.count=chimneyCount;instChimneyCaps.count=chimneyCount;for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
 const TREE_CAPACITY=16000,treeData=[];let trunks,leafA,leafB,leafC,leafD,leafE,treeDummy=new THREE.Object3D(),treeWindClock=0;
