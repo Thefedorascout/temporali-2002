@@ -18,10 +18,10 @@ const sun=new THREE.DirectionalLight(0xffe6c0,1.45);sun.position.set(200,500,300
 const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0});
 // A subtle generated grass texture prevents the enormous terrain from reading as a flat green sheet.
 const grassCanvas=document.createElement('canvas');grassCanvas.width=512;grassCanvas.height=512;
-const grassCtx=grassCanvas.getContext('2d');grassCtx.fillStyle='#d9d6b8';grassCtx.fillRect(0,0,256,256);
-for(let i=0;i<17000;i++){const x=Math.random()*512,y=Math.random()*512;const v=Math.random();grassCtx.fillStyle=v<.36?'rgba(69,99,51,.24)':v<.68?'rgba(166,146,91,.19)':'rgba(255,248,220,.27)';grassCtx.fillRect(x,y,Math.random()*2.8+.35,Math.random()*2.8+.35);}
-for(let i=0;i<1100;i++){grassCtx.strokeStyle=Math.random()<.5?'rgba(74,101,54,.26)':'rgba(190,172,123,.20)';grassCtx.lineWidth=.65;grassCtx.beginPath();const x=Math.random()*512,y=Math.random()*512;grassCtx.moveTo(x,y);grassCtx.lineTo(x+rand(1,5),y-rand(1,5));grassCtx.stroke();}
-const grassTexture=new THREE.CanvasTexture(grassCanvas);grassTexture.wrapS=grassTexture.wrapT=THREE.RepeatWrapping;grassTexture.repeat.set(420,500);grassTexture.encoding=THREE.sRGBEncoding;grassTexture.anisotropy= Math.min(8,renderer.capabilities.getMaxAnisotropy());groundMat.map=grassTexture;
+const grassCtx=grassCanvas.getContext('2d');grassCtx.fillStyle='#aab08e';grassCtx.fillRect(0,0,512,512);
+for(let i=0;i<17000;i++){const x=Math.random()*512,y=Math.random()*512;const v=Math.random();grassCtx.fillStyle=v<.36?'rgba(57,80,43,.16)':v<.68?'rgba(151,137,91,.12)':'rgba(238,232,202,.15)';grassCtx.fillRect(x,y,Math.random()*2.8+.35,Math.random()*2.8+.35);}
+for(let i=0;i<1100;i++){grassCtx.strokeStyle=Math.random()<.5?'rgba(66,88,50,.16)':'rgba(171,160,115,.14)';grassCtx.lineWidth=.65;grassCtx.beginPath();const x=Math.random()*512,y=Math.random()*512;grassCtx.moveTo(x,y);grassCtx.lineTo(x+rand(1,5),y-rand(1,5));grassCtx.stroke();}
+const grassTexture=new THREE.CanvasTexture(grassCanvas);grassTexture.wrapS=grassTexture.wrapT=THREE.RepeatWrapping;grassTexture.repeat.set(300,350);grassTexture.encoding=THREE.sRGBEncoding;grassTexture.anisotropy= Math.min(8,renderer.capabilities.getMaxAnisotropy());groundMat.map=grassTexture;
 function inLake(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;const iseo=((x-10600)/1050)**2+((z-30500)/6900)**2<1;if(!(garda||iseo))return false;const near=nearestElevationAnchor(x,z);return !(near.town&&near.town.kind==='lake'&&near.distance<townUrbanRadius(near.town)*.9);}
 function lakeLevel(x,z){const garda=((x-37000)/4400)**2+((z-30000)/12600)**2<1;return garda?65:185;}
 function rawTerrainHeight(x,z){
@@ -33,7 +33,7 @@ function rawTerrainHeight(x,z){
  const franciacorta=gauss(8500,30600,6000,6000,185);
  const maddalena=gauss(24800,35100,2300,3100,710);
  const valTrompia=gauss(15700,24400,5200,7800,780);
- const camonica=gauss(20000,10500,7100,16500,1550);
+ const camonica=gauss(20000,10500,6500,11800,1550);
  const adamello=gauss(29500,-4500,7800,10000,2700);
  const maniva=gauss(23000,17800,6000,5100,1500);
  const gardaMountains=gauss(36000,19700,6500,8300,1020);
@@ -41,13 +41,27 @@ function rawTerrainHeight(x,z){
  return Math.max(4,plain+rolling+franciacorta+maddalena+valTrompia+camonica+adamello+maniva+gardaMountains+alpineBackbone);
 }
 for(const t of towns)t.elevCorrection=t.elev-rawTerrainHeight(t.x,t.z);
+// Town elevation data should guide the relief, not create kilometre-high artificial steps.
+// Blend nearby correction anchors continuously and fade them over a broad area.
+function smoothedTownCorrection(x,z){
+ const gx=Math.floor(x/5000),gz=Math.floor(z/5000);let nearest=Infinity,weighted=0,totalWeight=0;
+ for(let ix=gx-3;ix<=gx+3;ix++)for(let iz=gz-3;iz<=gz+3;iz++){
+  const list=elevationBins.get(ix+','+iz);if(!list)continue;
+  for(const t of list){
+   const d=dist(x,z,t.x,t.z);if(d<nearest)nearest=d;if(d>14500)continue;
+   const weight=1/(d*d+2600*2600);weighted+=t.elevCorrection*weight;totalWeight+=weight;
+  }
+ }
+ if(!totalWeight||!Number.isFinite(nearest))return 0;
+ const average=clamp(weighted/totalWeight,-165,165);
+ const q=clamp(1-nearest/14500,0,1),fade=q*q*(3-2*q);
+ return average*fade;
+}
 const TERRAIN_BOUNDS={minX:-5000,maxX:65000,minZ:-9000,maxZ:73000,segX:700,segZ:820};
 let terrainGrid=null;
 function analyticHeightAt(x,z){
  const base=rawTerrainHeight(x,z);if(inLake(x,z))return lakeLevel(x,z);
- const near=nearestElevationAnchor(x,z),t=near.town;if(!t)return base;
- const radius=Math.max(650,townUrbanRadius(t)*1.25),q=clamp(1-near.distance/radius,0,1),w=q*q*(3-2*q);
- return Math.max(2,base+t.elevCorrection*w);
+ return Math.max(2,base+smoothedTownCorrection(x,z));
 }
 // Roads and props query the same triangles as the rendered heightmap, avoiding buried objects on steep terrain.
 function heightAt(x,z){
@@ -68,7 +82,7 @@ function makeTerrain(){
  geo.computeVertexNormals();const normals=geo.attributes.normal,temp=new THREE.Color();
  for(let i=0;i<pos.count;i++){
   const x=pos.getX(i)+cx,z=pos.getZ(i)+cz,h=heights[i],slope=1-Math.max(0,normals.getY(i));
-  const textureNoise=1+Math.sin(x/470)*Math.cos(z/590)*.035+Math.sin((x+z)/127)*.012;
+  const textureNoise=1+Math.sin(x/470)*Math.cos(z/590)*.018+Math.sin((x+z)/127)*.008;
   if(inLake(x,z))temp.setRGB(.10,.25,.29);
   else if(slope>.24||h>2300)temp.setRGB(.30,.32,.30);
   else if(h>1550)temp.setRGB(.35,.39,.36);
@@ -78,9 +92,9 @@ function makeTerrain(){
   else if(h>220)temp.setRGB(.39,.46,.31);
   else{
    const fieldPattern=Math.sin(x/2150+Math.sin(z/3100))*Math.cos(z/1750+Math.sin(x/3700));
-   if(z>41000&&fieldPattern>.34)temp.setRGB(.48,.46,.30);
-   else if(z>41000&&fieldPattern<-.45)temp.setRGB(.38,.40,.27);
-   else temp.setRGB(.39,.44,.30);
+   if(z>41000&&fieldPattern>.48)temp.setRGB(.43,.43,.32);
+   else if(z>41000&&fieldPattern<-.55)temp.setRGB(.37,.41,.31);
+   else temp.setRGB(.39,.44,.32);
   }
   colors[i*3]=temp.r*textureNoise;colors[i*3+1]=temp.g*textureNoise;colors[i*3+2]=temp.b*textureNoise;
  }
@@ -126,28 +140,125 @@ function ellipsoid(parent,sx,sy,sz,mat,x,y,z,rx=0,ry=0,rz=0,detail=2){const m=ne
 function nearestTown(x,z){let best=towns[0],bd=Infinity;for(const t of towns){let d=dist(x,z,t.x,t.z);if(d<bd){bd=d;best=t;}}return {town:best,distance:bd};}
 const roadSegments=[];const roadMarkPositions=[];const roadEdgePositions=[];const roadPositions=[];const roadUvs=[];const roadIndices=[];const shoulderPositions=[];const shoulderIndices=[];
 const shoulderMat=new THREE.MeshStandardMaterial({color:0x777d72,roughness:1});
-function roadBetween(a,b,width=8,marking=true){
- const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<1)return;
- const ux=dx/len,uz=dz/len,n=Math.max(1,Math.ceil(len/55)),half=width/2,shoulderHalf=half+1.25,positions=[],uvs=[],indices=[],shoulders=[],shIndices=[];
- const endPad=Math.max(2.5,width*.38),routeLength=len+endPad*2;let prevL=null,prevR=null;
+const ROAD_GRID=280,ROAD_MAX_GRADE=.085;
+function terrainRoadRoute(a,b){
+ const direct=Math.hypot(b.x-a.x,b.z-a.z);if(direct<1200)return [a,b];
+ const margin=clamp(direct*.30,5200,10500),minX=Math.min(a.x,b.x)-margin,maxX=Math.max(a.x,b.x)+margin,minZ=Math.min(a.z,b.z)-margin,maxZ=Math.max(a.z,b.z)+margin;
+ const minGX=Math.floor(minX/ROAD_GRID),maxGX=Math.ceil(maxX/ROAD_GRID),minGZ=Math.floor(minZ/ROAD_GRID),maxGZ=Math.ceil(maxZ/ROAD_GRID);
+ const sx=Math.round(a.x/ROAD_GRID),sz=Math.round(a.z/ROAD_GRID),ex=Math.round(b.x/ROAD_GRID),ez=Math.round(b.z/ROAD_GRID);
+ const key=(x,z)=>x+','+z,coord=(x,z)=>({x:x*ROAD_GRID,z:z*ROAD_GRID});
+ const startKey=key(sx,sz),endKey=key(ex,ez);
+ const offsets=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+ const hCache=new Map(),height=(x,z)=>{const k=key(x,z);if(!hCache.has(k))hCache.set(k,heightAt(x*ROAD_GRID,z*ROAD_GRID));return hCache.get(k);};
+ const gScore=new Map([[startKey,0]]),came=new Map(),closed=new Set(),heap=[];
+ function push(item){let i=heap.length;heap.push(item);while(i>0){const p=(i-1)>>1;if(heap[p].f<=item.f)break;heap[i]=heap[p];i=p;}heap[i]=item;}
+ function pop(){const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(true){let l=i*2+1,r=l+1;if(l>=heap.length)break;let c=r<heap.length&&heap[r].f<heap[l].f?r:l;if(heap[c].f>=last.f)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;}
+ const heuristic=(x,z)=>Math.hypot(ex-x,ez-z)*ROAD_GRID;
+ push({x:sx,z:sz,g:0,f:heuristic(sx,sz)});
+ let found=false,visits=0;
+ while(heap.length&&visits++<90000){
+  const cur=pop(),ck=key(cur.x,cur.z);
+  if(closed.has(ck))continue;
+  if(cur.g>(gScore.get(ck)??Infinity))continue;
+  if(cur.x===ex&&cur.z===ez){found=true;break;}
+  closed.add(ck);const ch=height(cur.x,cur.z);
+  for(const [ox,oz] of offsets){
+   const nx=cur.x+ox,nz=cur.z+oz;
+   if(nx<minGX||nx>maxGX||nz<minGZ||nz>maxGZ)continue;
+   const np=coord(nx,nz);if(inLake(np.x,np.z))continue;
+   const nk=key(nx,nz);if(closed.has(nk))continue;
+   const horizontal=Math.hypot(ox,oz)*ROAD_GRID,nh=height(nx,nz),grade=Math.abs(nh-ch)/horizontal;
+   // Prefer valley floors and contour-following roads. Steep short cuts remain possible only if unavoidable.
+   const excess=Math.max(0,grade-ROAD_MAX_GRADE)/ROAD_MAX_GRADE;
+   const cost=horizontal*(1+excess*excess*5.5);
+   const tentative=cur.g+cost;
+   if(tentative<(gScore.get(nk)??Infinity)){
+    gScore.set(nk,tentative);came.set(nk,ck);
+    push({x:nx,z:nz,g:tentative,f:tentative+heuristic(nx,nz)});
+   }
+  }
+ }
+ if(!found)return [a,b];
+ const cells=[];let current=endKey,guard=0;
+ while(current&&guard++<12000){const [x,z]=current.split(',').map(Number);cells.push(coord(x,z));if(current===startKey)break;current=came.get(current);}
+ if(!cells.length||key(Math.round(cells[cells.length-1].x/ROAD_GRID),Math.round(cells[cells.length-1].z/ROAD_GRID))!==startKey)return [a,b];
+ cells.reverse();
+ // Remove near-collinear cells to keep mesh size low while retaining every meaningful switchback.
+ const simplified=[cells[0]];
+ for(let i=1;i<cells.length-1;i++){
+  const p=simplified[simplified.length-1],c=cells[i],n=cells[i+1];
+  const ax=c.x-p.x,az=c.z-p.z,bx=n.x-c.x,bz=n.z-c.z,den=Math.hypot(ax,az)*Math.hypot(bx,bz)||1;
+  if((ax*bx+az*bz)/den<.985)simplified.push(c);
+ }
+ simplified.push(cells[cells.length-1]);
+ // Round sharp grid corners slightly; the smoothing is intentionally conservative so it does not cut across steep slopes.
+ const rounded=[a];
+ for(let i=1;i<simplified.length-1;i++){
+  const p=simplified[i-1],c=simplified[i],n=simplified[i+1],q=.22;
+  rounded.push({x:lerp(p.x,c.x,q),z:lerp(p.z,c.z,q)},{x:lerp(c.x,n.x,q),z:lerp(c.z,n.z,q)});
+ }
+ rounded.push(b);return rounded;
+}
+function roadBetween(a,b,width=8,marking=true,terrainRoute=false){
+ const path=terrainRoute?terrainRoadRoute(a,b):[a,b];if(path.length<2)return;
+ const lengths=[],cumulative=[0];let total=0;
+ for(let i=0;i<path.length-1;i++){const len=Math.hypot(path[i+1].x-path[i].x,path[i+1].z-path[i].z);lengths.push(len);total+=len;cumulative.push(total);}
+ if(total<1)return;
+ function pointAt(distance){
+  const d=clamp(distance,0,total);let i=0;while(i<lengths.length-1&&cumulative[i+1]<d)i++;
+  const len=lengths[i]||1,q=clamp((d-cumulative[i])/len,0,1),p=path[i],n=path[i+1];
+  return {x:lerp(p.x,n.x,q),z:lerp(p.z,n.z,q)};
+ }
+ const n=Math.max(1,Math.ceil(total/34)),half=width/2,shoulderHalf=half+1.35,positions=[],uvs=[],indices=[],shoulders=[],shIndices=[];
  for(let i=0;i<=n;i++){
-  const q=i/n,d=q*routeLength-endPad,cx=a.x+ux*d,cz=a.z+uz*d;
-  const lx=cx-uz*half,lz=cz+ux*half,rx=cx+uz*half,rz=cz-ux*half;
-  const slx=cx-uz*shoulderHalf,slz=cz+ux*shoulderHalf,srx=cx+uz*shoulderHalf,srz=cz-ux*shoulderHalf;
+  const d=total*i/n,p=pointAt(d),before=pointAt(Math.max(0,d-3)),after=pointAt(Math.min(total,d+3));
+  let tx=after.x-before.x,tz=after.z-before.z,l=Math.hypot(tx,tz)||1;tx/=l;tz/=l;
+  const lx=p.x-tz*half,lz=p.z+tx*half,rx=p.x+tz*half,rz=p.z-tx*half;
+  const slx=p.x-tz*shoulderHalf,slz=p.z+tx*shoulderHalf,srx=p.x+tz*shoulderHalf,srz=p.z-tx*shoulderHalf;
   const yL=heightAt(lx,lz),yR=heightAt(rx,rz),syL=heightAt(slx,slz),syR=heightAt(srx,srz);
   positions.push(lx,yL+.22,lz,rx,yR+.22,rz);shoulders.push(slx,syL+.12,slz,srx,syR+.12,srz);
-  uvs.push(q*routeLength/24,0,q*routeLength/24,1);
+  uvs.push(d/24,0,d/24,1);
   if(i<n){const a0=i*2,b0=a0+1,a1=a0+2,b1=a0+3;indices.push(a0,a1,b0,b0,a1,b1);shIndices.push(a0,a1,b0,b0,a1,b1);}
-  if(marking&&prevL&&prevR)roadEdgePositions.push(prevL.x,prevL.y+.245,prevL.z,lx,yL+.245,lz,prevR.x,prevR.y+.245,prevR.z,rx,yR+.245,rz);
-  prevL={x:lx,y:yL,z:lz};prevR={x:rx,y:yR,z:rz};
+  if(i>0){const d0=total*(i-1)/n,pp=pointAt(d0),pbefore=pointAt(Math.max(0,d0-3)),pafter=pointAt(Math.min(total,d0+3));let ptx=pafter.x-pbefore.x,ptz=pafter.z-pbefore.z,pl=Math.hypot(ptx,ptz)||1;ptx/=pl;ptz/=pl;
+   const plx=pp.x-ptz*half,plz=pp.z+ptx*half,prx=pp.x+ptz*half,prz=pp.z-ptx*half;
+   roadEdgePositions.push(plx,heightAt(plx,plz)+.255,plz,lx,yL+.255,lz,prx,heightAt(prx,prz)+.255,prz,rx,yR+.255,rz);
+  }
  }
  const indexOffset=roadPositions.length/3;roadPositions.push(...positions);roadUvs.push(...uvs);for(const idx of indices)roadIndices.push(indexOffset+idx);
  const shoulderOffset=shoulderPositions.length/3;shoulderPositions.push(...shoulders);for(const idx of shIndices)shoulderIndices.push(shoulderOffset+idx);
- roadSegments.push({a,b,width});
- if(marking&&len>80){for(let d=14;d<len-5;d+=18){const q=d/len,px=lerp(a.x,b.x,q),pz=lerp(a.z,b.z,q),dy=heightAt(px,pz)+.245;roadMarkPositions.push(px-ux*2.0,dy,pz-uz*2.0,px+ux*2.0,dy,pz+uz*2.0);}}
+ for(let i=0;i<path.length-1;i++)roadSegments.push({a:path[i],b:path[i+1],width});
+ if(marking&&total>80){for(let d=10;d<total-4;d+=18){const p=pointAt(d),before=pointAt(Math.max(0,d-2)),after=pointAt(Math.min(total,d+2));let tx=after.x-before.x,tz=after.z-before.z,l=Math.hypot(tx,tz)||1;tx/=l;tz/=l;const dy=heightAt(p.x,p.z)+.255;roadMarkPositions.push(p.x-tx*2,dy,p.z-tz*2,p.x+tx*2,dy,p.z+tz*2);}}
 }
-function buildRoadNetwork(){const connected=new Set();for(const t of towns){const nearest=towns.map(o=>({o,d:dist(t.x,t.z,o.x,o.z)})).filter(v=>v.o!==t).sort((a,b)=>a.d-b.d).slice(0,2);for(const item of nearest){const ids=[Math.min(t.id,item.o.id),Math.max(t.id,item.o.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(t,item.o,dist(t.x,t.z,item.o.x,item.o.z)>8500?10:7,true);}}}
- const named=[['Brescia','Mantova'],['Brescia','Desenzano del Garda'],['Brescia','Iseo'],['Brescia','Rovato'],['Brescia','Lumezzane'],['Montichiari','Castiglione delle Stiviere'],['Montichiari','Mantova'],['Chiari','Orzinuovi'],['Mantova','Suzzara'],['Mantova','Ostiglia'],['Iseo','Pisogne'],['Gardone Val Trompia','Lumezzane']];for(const [a,b] of named){const A=townByName[a],B=townByName[b];if(A&&B){const ids=[Math.min(A.id,B.id),Math.max(A.id,B.id)].join('-');if(!connected.has(ids)){connected.add(ids);roadBetween(A,B,11,true);}}}}
+function buildRoadNetwork(){
+ const connected=new Set();
+ const hubNames=['Brescia','Mantova','Desenzano del Garda','Montichiari','Iseo','Darfo Boario Terme','Gardone Val Trompia','Chiari','Rovato','Castiglione delle Stiviere','Suzzara','Asola','Viadana','Ostiglia','Pisogne','Salò','Lumezzane'];
+ const hubs=hubNames.map(n=>townByName[n]).filter(Boolean);
+ const mainRoutes=[
+  ['Brescia','Rovato'],['Rovato','Palazzolo sull\\'Oglio'],['Brescia','Desenzano del Garda'],['Brescia','Iseo'],
+  ['Brescia','Montichiari'],['Brescia','Chiari'],['Brescia','Gardone Val Trompia'],['Gardone Val Trompia','Lumezzane'],
+  ['Iseo','Pisogne'],['Pisogne','Darfo Boario Terme'],['Darfo Boario Terme','Esine'],['Desenzano del Garda','Salò'],
+  ['Montichiari','Castiglione delle Stiviere'],['Montichiari','Mantova'],['Montichiari','Asola'],
+  ['Mantova','Suzzara'],['Mantova','Ostiglia'],['Chiari','Orzinuovi'],['Asola','Viadana'],['Viadana','Suzzara']
+ ];
+ function connect(a,b,width,mark=true){const A=typeof a==='string'?townByName[a]:a,B=typeof b==='string'?townByName[b]:b;if(!A||!B||A===B)return;
+  const ids=[Math.min(A.id,B.id),Math.max(A.id,B.id)].join('-');if(connected.has(ids))return;connected.add(ids);
+  roadBetween(A,B,width,mark,Math.hypot(A.x-B.x,A.z-B.z)>1200);
+ }
+ for(const [a,b] of mainRoutes)connect(a,b,11,true);
+ // Small settlements feed into one nearby road hub. They do not all receive links to every neighbour.
+ for(const t of towns){if(hubs.includes(t))continue;
+  let best=null,bestCost=Infinity;
+  for(const h of hubs){const d=dist(t.x,t.z,h.x,h.z);const kindPenalty=(t.kind==='mountain'&&h.kind==='plain')?800:0;const cost=d+kindPenalty;if(cost<bestCost){best=h;bestCost=cost;}}
+  if(best)connect(t,best, t.pop>20000?8: t.pop>8000?7:5.8, t.pop>9000);
+ }
+ // A few short local links improve redundancy without returning to a fully connected mesh.
+ const localLinks=[];for(const t of towns.filter(t=>!hubs.includes(t)&&t.pop>10000)){
+  const next=towns.filter(o=>o!==t&&!hubs.includes(o)&&o.province===t.province&&dist(t.x,t.z,o.x,o.z)<4700)
+    .sort((a,b)=>dist(t.x,t.z,a.x,a.z)-dist(t.x,t.z,b.x,b.z))[0];
+  if(next&&((t.id*17+next.id*13)%5===0))localLinks.push([t,next]);
+ }
+ for(const [a,b] of localLinks)connect(a,b,7,true);
+}
 buildRoadNetwork();
 function localPoint(t,x,z,angle=0){return {x:t.x+x*Math.cos(angle)-z*Math.sin(angle),z:t.z+x*Math.sin(angle)+z*Math.cos(angle)};}
 function buildTownStreets(){for(const t of towns){const r=townUrbanRadius(t),angle=(t.id*0.61803398875%1)*Math.PI,core=t.pop>100000?110:t.pop>20000?83:t.pop>8000?62:40;const streetW=t.pop>50000?8:t.pop>10000?6.5:5.2;const outer=r*.82;
