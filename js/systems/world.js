@@ -192,20 +192,40 @@ instRoofMat.side=THREE.DoubleSide;
 const instRoofs=new THREE.InstancedMesh(roofGeo,instRoofMat,houseLimit);
 const instDoors=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),instDoorMat,houseLimit);
 const instWindows=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),instWindowMat,houseLimit*2);
-for(const mesh of [instWalls,instRoofs,instDoors,instWindows]){mesh.count=0;mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);}
+const instShutters=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:.94}),houseLimit*4);
+const instChimneys=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),houseLimit);
+const instChimneyCaps=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0x504a40,roughness:1}),houseLimit);
+for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.count=0;mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);}
 const housePalette=[0xbdb3a1,0xd4cbb8,0x9d6d53,0xb0b7ab,0xc4c0ae,0xc9b79e];
 const roofPalette=[0x834f3b,0x675d52,0x8d5941,0x615c54,0x985f48];
 const doorPalette=[0x6c513b,0x8b5b3b,0xb4a18b,0x4d5e5d];
-const imDummy=new THREE.Object3D();let houseCount=0,windowCount=0;
+const imDummy=new THREE.Object3D();let houseCount=0,windowCount=0,shutterCount=0,chimneyCount=0;
 function setInstance(mesh,index,x,y,z,sx,sy,sz,rotationY=0,rotationZ=0,color=null){imDummy.position.set(x,y,z);imDummy.rotation.set(0,rotationY,rotationZ);imDummy.scale.set(sx,sy,sz);imDummy.updateMatrix();mesh.setMatrixAt(index,imDummy.matrix);if(color)mesh.setColorAt(index,new THREE.Color(color));}
-function makeHouse(x,z,size=1,urban=false,yawOverride=null){if(houseCount>=houseLimit)return null;const y=heightAt(x,z);const w=size*(urban?rand(8.5,12):rand(5.5,8)),d=size*(urban?rand(7.5,11):rand(5,8)),h=size*(urban?rand(5.5,8.5):rand(3.5,5.5));const wallColor=choose(housePalette),roofColor=choose(roofPalette),doorColor=choose(doorPalette);const i=houseCount++;const yaw=yawOverride===null?rand(0,Math.PI*2):yawOverride;
+function makeHouse(x,z,size=1,urban=false,yawOverride=null){
+ if(houseCount>=houseLimit)return null;
+ const y=heightAt(x,z),w=size*(urban?rand(8.5,12):rand(5.5,8)),d=size*(urban?rand(7.5,11):rand(5,8)),h=size*(urban?rand(5.5,8.5):rand(3.5,5.5));
+ const wallColor=choose(housePalette),roofColor=choose(roofPalette),doorColor=choose(doorPalette),yaw=yawOverride===null?rand(0,Math.PI*2):yawOverride,i=houseCount++;
  setInstance(instWalls,i,x,y+h/2,z,w,h,d,yaw,0,wallColor);
- // The two roof slopes form a recognisable pitched Italian roof, not a pointed pyramid.
  setInstance(instRoofs,i,x,y+h,z,w*1.12,h*.62,d*1.12,yaw,0,roofColor);
- const front=d/2+.08;const fx=x+Math.sin(yaw)*front,fz=z+Math.cos(yaw)*front;
+ const front=d/2+.08,fx=x+Math.sin(yaw)*front,fz=z+Math.cos(yaw)*front;
  setInstance(instDoors,i,fx,y+.85*size,fz,.78*size,1.7*size,.13*size,yaw,0,doorColor);
- for(const sx of [-1,1]){const wx=fx+sx*w*.27*Math.cos(yaw),wz=fz-sx*w*.27*Math.sin(yaw);setInstance(instWindows,windowCount++,wx,y+h*.63,wz,.82*size,.9*size,.1*size,yaw,0,0x39565d);}
- buildingBoxes.push({x,z,r:Math.max(w,d)*.52});return null;}
+ for(const sx of [-1,1]){
+  const wx=fx+sx*w*.27*Math.cos(yaw),wz=fz-sx*w*.27*Math.sin(yaw),wy=y+h*.63;
+  setInstance(instWindows,windowCount++,wx,wy,wz,.82*size,.9*size,.1*size,yaw,0,0x39565d);
+  const shutterColor=choose([0x675b42,0x75694d,0x4c5d4b,0x8b6b4c]);
+  for(const side of [-1,1]){
+   const off=side*.56*size,shx=wx+off*Math.cos(yaw)+Math.sin(yaw)*.08*size,shz=wz-off*Math.sin(yaw)+Math.cos(yaw)*.08*size;
+   setInstance(instShutters,shutterCount++,shx,wy,shz,.16*size,1.02*size,.12*size,yaw,0,shutterColor);
+  }
+ }
+ if(Math.random()<.34&&chimneyCount<houseLimit){
+  const ox=(Math.random()-.5)*w*.34,oz=(Math.random()-.5)*d*.28,cx=x+ox*Math.cos(yaw)+oz*Math.sin(yaw),cz=z-ox*Math.sin(yaw)+oz*Math.cos(yaw),ch=rand(.62,.98)*size,k=chimneyCount++;
+  const chimneyColor=choose([0x8a5945,0x7d5141,0x72685d,0x5f5b53]);
+  setInstance(instChimneys,k,cx,y+h+h*.23+ch*.5,cz,.34*size,ch,.34*size,yaw,0,chimneyColor);
+  setInstance(instChimneyCaps,k,cx,y+h+h*.23+ch+.035*size,cz,.40*size,.07*size,.40*size,yaw,0,0x504a40);
+ }
+ buildingBoxes.push({x,z,r:Math.max(w,d)*.52});return null;
+}
 function seededTownRandom(seed){let state=(seed+0x9e3779b9)>>>0;return ()=>{state=(Math.imul(state^state>>>15,1|state)+0x6d2b79f5)>>>0;state=Math.imul(state^state>>>7,61|state)>>>0;return ((state^state>>>14)>>>0)/4294967296;};}
 function makeVillage(){for(const t of towns){const rnd=seededTownRandom(t.id+2002),r=townUrbanRadius(t),angle=(t.id*0.61803398875%1)*Math.PI,step=t.pop>50000?112:t.pop>20000?92:t.pop>10000?79:66,urban=t.pop>30000;
  const target=t.pop>150000?120:t.pop>50000?72:t.pop>20000?50:t.pop>10000?34:t.pop>5000?23:11,core=t.pop>100000?190:t.pop>20000?145:108,lots=[],lanes=[-r*.58,-r*.29,r*.29,r*.58];
@@ -261,12 +281,12 @@ function mergeCivicGroups(){for(const group of civicGroups){const buckets=new Ma
 makeVillage();
 addTownLandmarks();
 mergeCivicGroups();
-instWalls.count=houseCount;instRoofs.count=houseCount;instDoors.count=houseCount;instWindows.count=windowCount;for(const mesh of [instWalls,instRoofs,instDoors,instWindows]){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
-const TREE_CAPACITY=12000,treeData=[];let trunks,leafA,leafB,leafC,leafD,treeDummy=new THREE.Object3D(),treeWindClock=0;
+instWalls.count=houseCount;instRoofs.count=houseCount;instDoors.count=houseCount;instWindows.count=windowCount;instShutters.count=shutterCount;instChimneys.count=chimneyCount;instChimneyCaps.count=chimneyCount;for(const mesh of [instWalls,instRoofs,instDoors,instWindows,instShutters,instChimneys,instChimneyCaps]){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}
+const TREE_CAPACITY=12000,treeData=[];let trunks,leafA,leafB,leafC,leafD,leafE,treeDummy=new THREE.Object3D(),treeWindClock=0;
 function treeInstance(mesh,k,x,y,z,scaleX,scaleY,scaleZ,rx=0,ry=0,rz=0,color=null){treeDummy.position.set(x,y,z);treeDummy.rotation.set(rx,ry,rz);treeDummy.scale.set(scaleX,scaleY,scaleZ);treeDummy.updateMatrix();mesh.setMatrixAt(k,treeDummy.matrix);if(color)mesh.setColorAt(k,new THREE.Color(color));}
 function addTreeAt(x,z,forcedScale=null){if(treeData.length>=TREE_CAPACITY||inLake(x,z))return;const terrain=heightAt(x,z);if(terrain>2100)return;const scale=forcedScale||rand(.72,1.45),yaw=rand(0,Math.PI*2),phase=rand(0,Math.PI*2),y=terrain,k=treeData.length;treeInstance(trunks,k,x,y+1.55*scale,z,scale,scale,scale,0,yaw,0);const shades=[new THREE.Color().setHSL(rand(.24,.34),rand(.28,.46),rand(.23,.34)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.48),rand(.25,.37)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.48),rand(.24,.36)),new THREE.Color().setHSL(rand(.24,.34),rand(.28,.46),rand(.25,.38))];
- treeInstance(leafA,k,x,y+4.05*scale,z,1.6*scale,1.65*scale,1.55*scale,0,yaw,0,shades[0]);treeInstance(leafB,k,x-.86*scale,y+4.0*scale,z+.12*scale,1.18*scale,1.22*scale,1.12*scale,.08,yaw+.6,.08,shades[1]);treeInstance(leafC,k,x+.84*scale,y+4.25*scale,z-.08*scale,1.20*scale,1.28*scale,1.18*scale,-.06,yaw-1.0,-.08,shades[2]);treeInstance(leafD,k,x+.08*scale,y+5.08*scale,z-.12*scale,1.15*scale,1.30*scale,1.15*scale,.04,yaw+.15,0,shades[3]);treeData.push({x,z,y,scale,yaw,phase});trunks.count=leafA.count=leafB.count=leafC.count=leafD.count=treeData.length;}
-function makeTrees(){const trunkGeo=new THREE.CylinderGeometry(.13,.25,3.1,8);const leafGeo=new THREE.SphereGeometry(1,12,9);const leafBaseMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});const leafAltMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});trunks=new THREE.InstancedMesh(trunkGeo,sharedMats.treeTrunk,TREE_CAPACITY);leafA=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafB=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafC=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafD=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);for(const m of [trunks,leafA,leafB,leafC,leafD]){m.castShadow=true;m.receiveShadow=true;m.count=0;scene.add(m);}
+ treeInstance(leafA,k,x,y+4.05*scale,z,1.6*scale,1.65*scale,1.55*scale,0,yaw,0,shades[0]);treeInstance(leafB,k,x-.86*scale,y+4.0*scale,z+.12*scale,1.18*scale,1.22*scale,1.12*scale,.08,yaw+.6,.08,shades[1]);treeInstance(leafC,k,x+.84*scale,y+4.25*scale,z-.08*scale,1.20*scale,1.28*scale,1.18*scale,-.06,yaw-1.0,-.08,shades[2]);treeInstance(leafD,k,x+.08*scale,y+5.08*scale,z-.12*scale,1.15*scale,1.30*scale,1.15*scale,.04,yaw+.15,0,shades[3]);treeInstance(leafE,k,x+.03*scale,y+5.72*scale,z+.04*scale,.78*scale,.92*scale,.80*scale,-.03,yaw-.35,.02,shades[1]);treeData.push({x,z,y,scale,yaw,phase});trunks.count=leafA.count=leafB.count=leafC.count=leafD.count=leafE.count=treeData.length;}
+function makeTrees(){const trunkGeo=new THREE.CylinderGeometry(.13,.25,3.1,8);const leafGeo=new THREE.SphereGeometry(1,14,10);const leafBaseMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});const leafAltMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});trunks=new THREE.InstancedMesh(trunkGeo,sharedMats.treeTrunk,TREE_CAPACITY);leafA=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafB=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafC=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);leafD=new THREE.InstancedMesh(leafGeo,leafAltMat,TREE_CAPACITY);leafE=new THREE.InstancedMesh(leafGeo,leafBaseMat,TREE_CAPACITY);for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.castShadow=true;m.receiveShadow=true;m.count=0;scene.add(m);}
  // Random field trees and mixed woodland groups; dense tree lines follow valleys and rural roads.
  let tries=0;while(treeData.length<1750&&tries++<18000){const x=rand(-3500,62000),z=rand(-4000,69000);if(towns.some(t=>dist(x,z,t.x,t.z)<townUrbanRadius(t)*.88))continue;addTreeAt(x,z);}
  const groves=[];for(let i=0;i<30;i++){const north=i<20;groves.push({x:rand(1000,38000),z:north?rand(-2500,26500):rand(26000,59000),r:rand(850,2100)});}
@@ -277,8 +297,8 @@ function updateFoliage(dt,p,gameState){treeWindClock+=dt;if(treeWindClock<.12)re
  treeInstance(leafA,i,t.x+sway*1.2*sc,t.y+4.05*sc,t.z+swaySide*1.2*sc,1.6*sc,1.65*sc,1.55*sc,swaySide*.6,t.yaw,sway);
  treeInstance(leafB,i,t.x+(-.86+sway*.8)*sc,t.y+4.0*sc,t.z+(.12+swaySide)*sc,1.18*sc,1.22*sc,1.12*sc,.08+swaySide,t.yaw+.6,.08+sway);
  treeInstance(leafC,i,t.x+(.84+sway*1.1)*sc,t.y+4.25*sc,t.z+(-.08+swaySide)*sc,1.20*sc,1.28*sc,1.18*sc,-.06+swaySide,t.yaw-1.0,-.08+sway);
- treeInstance(leafD,i,t.x+(.08+sway*1.4)*sc,t.y+5.08*sc,t.z+(-.12+swaySide*1.3)*sc,1.15*sc,1.30*sc,1.15*sc,.04+swaySide,t.yaw+.15,sway*1.3);dirty=true;}
- if(dirty)for(const m of [trunks,leafA,leafB,leafC,leafD])m.instanceMatrix.needsUpdate=true;}
+ treeInstance(leafD,i,t.x+(.08+sway*1.4)*sc,t.y+5.08*sc,t.z+(-.12+swaySide*1.3)*sc,1.15*sc,1.30*sc,1.15*sc,.04+swaySide,t.yaw+.15,sway*1.3);treeInstance(leafE,i,t.x+.03*sc,t.y+5.72*sc,t.z+.04*sc,.78*sc,.92*sc,.80*sc,-.03,t.yaw-.35,.02);dirty=true;}
+ if(dirty)for(const m of [trunks,leafA,leafB,leafC,leafD,leafE])m.instanceMatrix.needsUpdate=true;}
 makeTrees();
 // a few roadside utility poles sell the early-2000s countryside silhouette
 function makePole(x,z){const y=heightAt(x,z);cyl(scene,.13,.18,7,new THREE.MeshStandardMaterial({color:0x514c43}),x,y+3.5,z,0,0,0,7);box(scene,2.2,.16,.15,sharedMats.roof2,x,y+6.4,z);}
@@ -286,10 +306,35 @@ for(let i=0;i<roadSegments.length;i+=4){const s=roadSegments[i];for(const q of [
 // The interior is deliberately furnished like a modest 2002 home.
 const homeOptions=towns;const homeTown=choose(homeOptions);const homeAngle=rand(0,Math.PI*2);const homeOffset=homeTown.pop>150000?rand(500,950):homeTown.pop>50000?rand(350,700):homeTown.pop>15000?rand(220,420):homeTown.pop>5000?rand(130,310):rand(35,160);const homeX=homeTown.x+Math.cos(homeAngle)*homeOffset,homeZ=homeTown.z+Math.sin(homeAngle)*homeOffset;const homeGroup=new THREE.Group();homeGroup.position.set(homeX,heightAt(homeX,homeZ),homeZ);scene.add(homeGroup);
 // A small belt of trees around the starting home makes the ground legible at walking distance.
-for(let i=0;i<190;i++){const a=rand(0,Math.PI*2),r=rand(28,260);const tx=homeX+Math.cos(a)*r,tz=homeZ+Math.sin(a)*r;if(dist(tx,tz,homeX,homeZ)>24)addTreeAt(tx,tz,rand(.75,1.35));}for(const m of [trunks,leafA,leafB,leafC,leafD]){m.instanceMatrix.needsUpdate=true;m.count=treeData.length;}
+for(let i=0;i<190;i++){const a=rand(0,Math.PI*2),r=rand(28,260);const tx=homeX+Math.cos(a)*r,tz=homeZ+Math.sin(a)*r;if(dist(tx,tz,homeX,homeZ)>24)addTreeAt(tx,tz,rand(.75,1.35));}for(const m of [trunks,leafA,leafB,leafC,leafD,leafE]){m.instanceMatrix.needsUpdate=true;m.count=treeData.length;}
 // Generated 2002-style town-entry signs on the regional roads.
 function makeRoadSign(x,z,name,province='BS',angle=0){const y=heightAt(x,z);const group=new THREE.Group();group.position.set(x,y,z);group.rotation.y=angle;scene.add(group);cyl(group,.065,.085,2.55,sharedMats.concrete,0,1.27,0,0,0,0,8);box(group,3.85,.86,.14,sharedMats.white,0,2.54,0);const c=document.createElement('canvas');c.width=512;c.height=116;const cx=c.getContext('2d');cx.fillStyle='#f1efe1';cx.fillRect(0,0,512,116);cx.strokeStyle='#212824';cx.lineWidth=7;cx.strokeRect(4,4,504,108);cx.fillStyle='#202721';cx.textAlign='center';cx.textBaseline='middle';cx.font=(name.length>18?'bold 28px Arial':'bold 34px Arial');cx.fillText(name.toUpperCase(),256,48,480);cx.font='22px Arial';cx.fillStyle='#59675a';cx.fillText(province==='BS'?'PROVINCIA DI BRESCIA':'PROVINCIA DI MANTOVA',256,86);const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;const face=new THREE.Mesh(new THREE.PlaneGeometry(3.65,.66),new THREE.MeshStandardMaterial({map:tex,roughness:.78,side:THREE.DoubleSide}));face.position.set(0,2.54,.078);group.add(face);return group;}
 for(const t of towns.filter(t=>t.pop>5000)){const nearest=towns.filter(o=>o!==t).sort((a,b)=>dist(t.x,t.z,a.x,a.z)-dist(t.x,t.z,b.x,b.z))[0];const angle=nearest?Math.atan2(nearest.x-t.x,nearest.z-t.z):0;makeRoadSign(t.x+Math.cos(angle+1.2)*55,t.z+Math.sin(angle+1.2)*55,t.name,t.province,angle);}
+
+const streetNames=['VIA ROMA','VIA XX SETTEMBRE','VIA GIUSEPPE GARIBALDI','VIA DANTE ALIGHIERI','VIA MARCONI','VIA DELLA STAZIONE','VIA MAZZINI','VIA MATTEOTTI','VIA SAN ROCCO','VIA DEL MERCATO','VIA EUROPA','VIA DEI TIGLI','VIA DELLA REPUBBLICA','VIA SAN GIOVANNI','VIA DELLE SCUOLE','VIA ALPINI'];
+const streetSignMax=towns.filter(t=>t.pop>=5000).reduce((n,t)=>n+(t.pop>50000?4:t.pop>15000?3:t.pop>8000?2:1),0);
+const streetPosts=new THREE.InstancedMesh(new THREE.BoxGeometry(.065,2.45,.065),new THREE.MeshStandardMaterial({color:0x777c76,roughness:.8}),streetSignMax);
+const streetPostDummy=new THREE.Object3D();let streetPostCount=0;
+function makeStreetPlate(x,z,name,angle){
+ const y=heightAt(x,z),w=1.62,h=.27;
+ streetPostDummy.position.set(x,y+1.22,z);streetPostDummy.rotation.set(0,angle,0);streetPostDummy.scale.set(1,1,1);streetPostDummy.updateMatrix();streetPosts.setMatrixAt(streetPostCount++,streetPostDummy.matrix);
+ const c=document.createElement('canvas');c.width=512;c.height=88;const ctx=c.getContext('2d);
+ ctx.fillStyle='#255b78';ctx.fillRect(0,0,512,88);ctx.strokeStyle='#f0f0e7';ctx.lineWidth=8;ctx.strokeRect(5,5,502,78);
+ ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=name.length>20?'bold 28px Arial':'bold 36px Arial';ctx.fillText(name,256,45,476);
+ const tex=new THREE.CanvasTexture(c);tex.encoding=THREE.sRGBEncoding;
+ const board=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map:tex,roughness:.72,side:THREE.DoubleSide}));
+ board.position.set(x,y+2.20,z);board.rotation.y=angle;board.castShadow=false;scene.add(board);
+}
+for(const t of towns.filter(t=>t.pop>=5000)){
+ const count=t.pop>50000?4:t.pop>15000?3:t.pop>8000?2:1;
+ const angle=(t.id*.61803398875%1)*Math.PI,core=t.pop>100000?110:t.pop>20000?83:t.pop>8000?62:40;
+ for(let k=0;k<count;k++){
+  const dir=k*Math.PI/2,distAlong=core+38,offset=3.8,lx=Math.cos(dir)*distAlong+Math.cos(dir+Math.PI/2)*offset,lz=Math.sin(dir)*distAlong+Math.sin(dir+Math.PI/2)*offset;
+  const p=localPoint(t,lx,lz,angle),name=streetNames[(t.id*3+k*5)%streetNames.length];
+  makeStreetPlate(p.x,p.z,name,angle+dir+Math.PI/2);
+ }
+}
+streetPosts.count=streetPostCount;streetPosts.instanceMatrix.needsUpdate=true;scene.add(streetPosts);
 roadBetween({x:homeX+7,z:homeZ+12},{x:homeX+115,z:homeZ+79},6.8);
 makeRoadSign(homeX+95,homeZ+67,homeTown.name,homeTown.province,Math.atan2(108,67));
       return {scene,camera,renderer,hemi,sun,groundMat,box,cyl,towns,townByName,townUrbanRadius,heightAt,rawTerrainHeight,inLake,lakeLevel,nearestTown,roadSegments,roadBetween,buildingBoxes,sharedMats,homeTown,homeX,homeZ,homeGroup,updateFoliage,addTreeAt};
