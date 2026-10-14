@@ -122,19 +122,20 @@ function applyTerrainGrading(x,z,base){
  if(inLake(x,z))return base;
  const pads=terrainGradeBins.get(Math.floor(x/GRADE_BIN_SIZE)+','+Math.floor(z/GRADE_BIN_SIZE));
  if(!pads)return base;
- let totalWeight=0,weightedLevel=0,inside=null,insideScore=Infinity;
+ let totalWeight=0,weightedLevel=0;
  for(const pad of pads){
   const d=Math.hypot(x-pad.x,z-pad.z);if(d>=pad.outerRadius)continue;
-  if(d<=pad.innerRadius){
-   const score=d/pad.innerRadius;
-   if(score<insideScore){inside=pad;insideScore=score;}
-   continue;
+  let weight;
+  if(d<=pad.footprintRadius)weight=1;
+  else if(d<pad.innerRadius){
+   const q=clamp((d-pad.footprintRadius)/(pad.innerRadius-pad.footprintRadius),0,1),smooth=q*q*(3-2*q);
+   weight=1-.05*smooth;
+  }else{
+   const q=clamp((d-pad.innerRadius)/(pad.outerRadius-pad.innerRadius),0,1),smooth=q*q*(3-2*q);
+   weight=.95*(1-smooth);
   }
-  const q=clamp((d-pad.innerRadius)/(pad.outerRadius-pad.innerRadius),0,1);
-  const smooth=q*q*(3-2*q),weight=1-smooth;
   if(weight>0){totalWeight+=weight;weightedLevel+=pad.level*weight;}
  }
- if(inside)return inside.level;
  if(totalWeight<=0)return base;
  return lerp(base,weightedLevel/totalWeight,clamp(totalWeight,0,1));
 }
