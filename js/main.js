@@ -5,7 +5,22 @@ if (!window.THREE) { const screen=document.getElementById('startScreen'); screen
 try {
 const { $, clamp, lerp, rand, choose, dist, fmt, euros } = window.TemporaliUtils;
 const CONFIG = window.TemporaliConfig;
-const world = window.TemporaliWorld.create({THREE, utils:window.TemporaliUtils});
+const allowedStartZones=new Set(['val-sabbia','val-trompia','brescia-centro','mantova-centro','lago-garda']);
+const pageUrl=new URL(window.location.href);
+const requestedZone=pageUrl.searchParams.get('zone');
+const startZone=allowedStartZones.has(requestedZone)?requestedZone:'brescia-centro';
+const startZoneSelect=$('startZone');
+if(startZoneSelect){
+ startZoneSelect.value=startZone;
+ startZoneSelect.addEventListener('change',()=>{
+  const nextZone=startZoneSelect.value;if(!allowedStartZones.has(nextZone)||nextZone===startZone)return;
+  startZoneSelect.disabled=true;
+  const button=$('startButton');if(button){button.disabled=true;button.textContent='RICREAZIONE DELLA MAPPA…';}
+  const nextUrl=new URL(window.location.href);nextUrl.searchParams.set('zone',nextZone);
+  window.location.assign(nextUrl.toString());
+ });
+}
+const world = window.TemporaliWorld.create({THREE, utils:window.TemporaliUtils, startZone});
 const {scene,camera,renderer,hemi,sun,groundMat,box,cyl,towns,townByName,townUrbanRadius,heightAt,rawTerrainHeight,inLake,lakeLevel,nearestTown,roadSegments,roadBetween,buildingBoxes,sharedMats,homeTown,homeX,homeZ,homeGroup,updateFoliage,addTreeAt} = world;
 const floorMat=new THREE.MeshStandardMaterial({color:0x8c806b,roughness:1});const floor=box(homeGroup,12,.24,11,floorMat,0,.12,0);box(homeGroup,12,3.1,.3,sharedMats.wall2,0,1.55,-5.4);box(homeGroup,.3,3.1,11,sharedMats.wall2,-6,1.55,0);box(homeGroup,.3,3.1,11,sharedMats.wall2,6,1.55,0);
 // Complete front facade with a sensible doorway, plus a full-height rear wall (not just a narrow top beam).
@@ -62,7 +77,7 @@ const uiSystem = window.TemporaliUI.create({$,game,isInside,currentPos,hotspots,
 const {openLaptop,closeLaptop,findWifi,renderLaptop,drawMapCanvas,openMap,closeMap} = uiSystem;
 uiSystem.bind();
 window.TemporaliInput.bind({$,game,notify,homeTown,startAudio,resumeAudio:()=>{if(audioCtx?.state==='suspended')audioCtx.resume();},player,clamp,car,camProp,camera,dist,homeX,homeZ,openLaptop,openMap,findWifi,toggleCamera,startStopRecording,cleanLens,keys,closeLaptop,closeMap,drawMapCanvas,nearestTown,renderLaptop});
-function renderFrame(now){requestAnimationFrame(renderFrame);const dt=Math.min(.05,(now-lastTime)/1000||0);lastTime=now;if(!game.started){renderer.render(scene,camera);return;}if(!game.paused&&!game.laptopOpen&&!game.mapOpen){updateStorms(dt);updateClockAndReports(dt);updatePlayer(dt);updateCurrentWeather(dt);updateFoliage(dt,currentPos(),game);updateRain(dt);updateRecording(dt);if(game.laptopBattery>0&&!isInside()&&!game.laptopOpen)game.laptopBattery=Math.max(0,game.laptopBattery-dt*.015);if(isInside())game.laptopBattery=Math.min(100,game.laptopBattery+dt*.08);if(game.cameraEquipped&&!isInside())game.lensDirt=clamp(game.lensDirt+game.rain*dt*.00065,0,.9);
+function renderFrame(now){requestAnimationFrame(renderFrame);const dt=Math.min(.05,(now-lastTime)/1000||0);lastTime=now;if(!game.started){renderer.render(scene,camera);return;}if(frame%18===0)renderer.shadowMap.needsUpdate=true;if(!game.paused&&!game.laptopOpen&&!game.mapOpen){updateStorms(dt);updateClockAndReports(dt);updatePlayer(dt);updateCurrentWeather(dt);updateFoliage(dt,currentPos(),game);updateRain(dt);updateRecording(dt);if(game.laptopBattery>0&&!isInside()&&!game.laptopOpen)game.laptopBattery=Math.max(0,game.laptopBattery-dt*.015);if(isInside())game.laptopBattery=Math.min(100,game.laptopBattery+dt*.08);if(game.cameraEquipped&&!isInside())game.lensDirt=clamp(game.lensDirt+game.rain*dt*.00065,0,.9);
  if(game.recording){$('crosshair').style.opacity='.15';$('rainGlass').style.opacity=String(game.lensDirt*.8);}else{$('crosshair').style.opacity=game.cameraEquipped?'.9':'.65';}
  if(game.waypoint){const p=currentPos();const d=dist(p.x,p.z,game.waypoint.x,game.waypoint.z);$('cameraReadout').title='GPS: '+game.waypointName+' · '+(d/1000).toFixed(1)+' km';if(d<70){game.waypoint=null;notify('Sei arrivato alla meta. Guarda il cielo e prepara la camera.');}}
  if(game.notificationTimer>0){game.notificationTimer-=dt;if(game.notificationTimer<=0)$('notification').classList.remove('show');}
@@ -75,7 +90,7 @@ if(firstStorm){game.waypoint={x:firstStorm.x,z:firstStorm.z};game.waypointName=i
 // The button stays disabled while the regional scene is being generated, so a fast click cannot be lost during startup.
 const readyButton=$('startButton');
 if(readyButton){readyButton.disabled=false;readyButton.textContent='ENTRA NELL’ESTATE 2002 ↗';}
-updateCurrentWeather(0);requestAnimationFrame(renderFrame);
+renderer.shadowMap.needsUpdate=true;updateCurrentWeather(0);requestAnimationFrame(renderFrame);
 } catch (err) {
   console.error('TEMPORALI: errore durante l’inizializzazione', err);
   window.__temporaliStartupError = String(err && (err.stack || err.message) || err);
