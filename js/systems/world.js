@@ -447,7 +447,7 @@ function makeVillage(){for(const t of towns){const rnd=seededTownRandom(t.id+200
 const civicGroups=[];
 function placeCivic(t,lx,lz,angle){const p=localPoint(t,lx,lz,angle);const g=new THREE.Group();g.position.set(p.x,analyticHeightAt(p.x,p.z),p.z);g.rotation.y=-angle;civicGroups.push(g);scene.add(g);return g;}
 function civicBox(g,w,h,d,mat,x,y,z,rx=0,ry=0,rz=0){const m=box(g,w,h,d,mat,x,y,z,rx,ry,rz);m.castShadow=(mat!==sharedMats.glass&&mat!==sharedMats.black);m.receiveShadow=true;return m;}
-const civicPlaster=new THREE.MeshStandardMaterial({color:0xd5cbbb,roughness:.92}),civicWarm=new THREE.MeshStandardMaterial({color:0xbda88d,roughness:.94}),civicRoof=new THREE.MeshStandardMaterial({color:0x8d4f3c,roughness:.95}),civicDarkRoof=new THREE.MeshStandardMaterial({color:0x625951,roughness:.92}),civicGlass=new THREE.MeshStandardMaterial({color:0x273f47,roughness:.24,metalness:.05}),civicStone=new THREE.MeshStandardMaterial({color:0x968a76,roughness:1}),civicPavement=new THREE.MeshStandardMaterial({color:0x8f928a,roughness:1}),civicInnerPavement=new THREE.MeshStandardMaterial({color:0xb7b4a8,roughness:1}),civicWater=new THREE.MeshStandardMaterial({color:0x477d85,roughness:.22,metalness:.12}),civicParkMat=new THREE.MeshStandardMaterial({color:0x82916f,roughness:1}),flagGreen=new THREE.MeshStandardMaterial({color:0x337c4c}),flagWhite=new THREE.MeshStandardMaterial({color:0xe8e2d1}),flagRed=new THREE.MeshStandardMaterial({color:0xb8453c}),marketRed=new THREE.MeshStandardMaterial({color:0xa64d3e,roughness:.78}),marketCream=new THREE.MeshStandardMaterial({color:0xdccda8,roughness:.84}),marketGreen=new THREE.MeshStandardMaterial({color:0x647c59,roughness:.84});
+const civicPlaster=new THREE.MeshStandardMaterial({color:0xd5cbbb,roughness:.92}),civicWarm=new THREE.MeshStandardMaterial({color:0xbda88d,roughness:.94}),civicRoof=new THREE.MeshStandardMaterial({color:0x8d4f3c,roughness:.95}),civicDarkRoof=new THREE.MeshStandardMaterial({color:0x625951,roughness:.92}),civicGlass=new THREE.MeshStandardMaterial({color:0x273f47,roughness:.24,metalness:.05}),civicStone=new THREE.MeshStandardMaterial({color:0x968a76,roughness:1}),civicPavement=new THREE.MeshStandardMaterial({color:0x8f928a,roughness:1}),civicInnerPavement=new THREE.MeshStandardMaterial({color:0xb7b4a8,roughness:1}),civicWater=new THREE.MeshStandardMaterial({color:0x477d85,roughness:.22,metalness:.12}),civicParkMat=new THREE.MeshStandardMaterial({color:0x82916f,roughness:1}),civicLamp=new THREE.MeshStandardMaterial({color:0xd6c89b,emissive:0x5a4b26,emissiveIntensity:.15}),civicParkGrass=new THREE.MeshStandardMaterial({color:0x78916b,roughness:1}),flagGreen=new THREE.MeshStandardMaterial({color:0x337c4c}),flagWhite=new THREE.MeshStandardMaterial({color:0xe8e2d1}),flagRed=new THREE.MeshStandardMaterial({color:0xb8453c}),marketRed=new THREE.MeshStandardMaterial({color:0xa64d3e,roughness:.78}),marketCream=new THREE.MeshStandardMaterial({color:0xdccda8,roughness:.84}),marketGreen=new THREE.MeshStandardMaterial({color:0x647c59,roughness:.84});
 function civicWindowGrid(g,w,y,z,count=5,wallW=1){for(let i=0;i<count;i++){const x=-w/2+(i+.5)*w/count;civicBox(g,wallW,.92,.075,civicGlass,x,y,z);civicBox(g,wallW+.1,.07,.09,civicStone,x,y,z-.045);}}
 function addTownHall(t,lx,lz,angle,scale=1){const g=placeCivic(t,lx,lz,angle);const w=17*scale,d=12*scale,h=8*scale;civicBox(g,w,h,d,civicPlaster,0,h/2,0);civicBox(g,w+1,.38,d+1,civicStone,0,h+.16,0);civicBox(g,w+1.2,.28,d+1.2,civicRoof,0,h+.48,0);civicBox(g,w*.42,.16,.3,civicStone,0,4.4*scale,-d/2-.18);for(let i=-2;i<=2;i++){cyl(g,.12*scale,.12*scale,3.3*scale,civicStone,i*2.2*scale,2.7*scale,-d/2-.28,0,0,0,8);}
  civicWindowGrid(g,w*.78,5.9*scale,-d/2-.10,Math.max(3,Math.round(4*scale)),1.0*scale);civicWindowGrid(g,w*.78,3.0*scale,-d/2-.10,Math.max(3,Math.round(4*scale)),1.0*scale);civicBox(g,1.7*scale,2.8*scale,.16,civicDarkRoof,0,1.45*scale,-d/2-.14);civicBox(g,2.4*scale,.22,.22,civicStone,0,4.7*scale,-d/2-.3);
@@ -464,7 +464,7 @@ function addChurch(t,lx,lz,angle,scale=1){const g=placeCivic(t,lx,lz,angle);cons
  buildingBoxes.push({x:g.position.x,z:g.position.z,r:Math.max(w,d)*.56});return g;}
 function addSchool(t,lx,lz,angle,scale=1){const g=placeCivic(t,lx,lz,angle);const w=22*scale,d=12*scale,h=6.5*scale;civicBox(g,w,h,d,civicPlaster,0,h/2,0);civicBox(g,w+1,.28,d+1,civicDarkRoof,0,h+.14,0);civicBox(g,3*scale,2.5*scale,.15,civicStone,0,1.25*scale,-d/2-.12);civicBox(g,1.35*scale,2.1*scale,.17,civicDarkRoof,0,1.1*scale,-d/2-.2);for(const y of [2.4,4.7])for(let i=0;i<6;i++)civicBox(g,1.45*scale,1.05*scale,.08,civicGlass,(-w*.40)+i*(w*.16),y*scale,-d/2-.12);civicBox(g,5*scale,.16*scale,.25,civicStone,0,h+.26*scale,-d/2-.25);
  // Playground and a painted basketball court.
- const yard=box(scene,27*scale,.09,20*scale,civicParkMat,g.position.x+26*scale,g.position.y+.04,g.position.z+3*scale);yard.receiveShadow=true;civicBox(g,18*scale,.035,.13,civicStone,26*scale,.105,3*scale);
+ const yard=civicBox(g,27*scale,.09,20*scale,civicParkMat,26*scale,.04,3*scale);yard.receiveShadow=true;civicBox(g,18*scale,.035,.13,civicStone,26*scale,.105,3*scale);
  buildingBoxes.push({x:g.position.x,z:g.position.z,r:Math.max(w,d)*.55});return g;}
 function addMarket(t,lx,lz,angle,scale=1){const g=placeCivic(t,lx,lz,angle);const count=t.pop>50000?6:t.pop>20000?5:3;for(let i=0;i<count;i++){const x=(i-(count-1)/2)*4.6*scale,z=(i%2)*4.2*scale;const awning=i%3===0?marketRed:i%3===1?marketCream:marketGreen;civicBox(g,3.7*scale,.16*scale,3.1*scale,awning,x,3.05*scale,z);civicBox(g,3.4*scale,.62*scale,1.0*scale,civicStone,x,1.05*scale,z);for(const dx of [-1.65,1.65])for(const dz of [-1.3,1.3])cyl(g,.055*scale,.055*scale,2.9*scale,civicStone,x+dx*scale,1.5*scale,z+dz*scale,0,0,0,6);civicBox(g,.48*scale,.65*scale,.08,civicWarm,x-.7*scale,1.72*scale,z-1.62*scale);}
  buildingBoxes.push({x:g.position.x,z:g.position.z,r:Math.max(12,count*2.5)*scale});}
@@ -473,14 +473,14 @@ function addPiazza(t,angle){const g=placeCivic(t,0,0,angle),sz=t.pop>100000?135:
  // Simple stone fountain with a water basin, benches and period streetlamps.
  cyl(g,6.2,6.7,.62,civicStone,0,.51,0,0,0,0,28);cyl(g,4.9,5.2,.12,civicWater,0,.89,0,0,0,0,28);cyl(g,1.05,1.3,1.7,civicStone,0,1.55,0,0,0,0,16);cyl(g,.12,.12,1.3,civicStone,0,2.95,0,0,0,0,10);
  for(const [x,z,ry] of [[-sz*.30,0,0],[sz*.30,0,0],[0,-sz*.27,Math.PI/2],[0,sz*.27,Math.PI/2]]){civicBox(g,sz*.15,.32,1.2,civicWarm,x,.38,z,0,ry,0);}
- for(const [x,z] of [[-sz*.39,-sz*.30],[sz*.39,-sz*.30],[-sz*.39,sz*.30],[sz*.39,sz*.30]]){cyl(g,.08,.12,4.5,civicStone,x,2.35,z,0,0,0,8);cyl(g,.32,.36,.24,new THREE.MeshStandardMaterial({color:0xd6c89b,emissive:0x5a4b26,emissiveIntensity:.15}),x,4.62,z,0,0,0,10);}
+ for(const [x,z] of [[-sz*.39,-sz*.30],[sz*.39,-sz*.30],[-sz*.39,sz*.30],[sz*.39,sz*.30]]){cyl(g,.08,.12,4.5,civicStone,x,2.35,z,0,0,0,8);cyl(g,.32,.36,.24,civicLamp,x,4.62,z,0,0,0,10);}
  return {size:sz};}
 function addTownLandmarks(){for(const t of towns){const angle=(t.id*0.61803398875%1)*Math.PI,sz=t.pop>100000?245:t.pop>50000?185:t.pop>20000?145:t.pop>8000?102:70;addPiazza(t,angle);addChurch(t,-sz*.56,-sz*.28,angle,t.pop>50000?1.16:t.pop>10000?1:.82);if(t.pop>5000)addTownHall(t,sz*.57,-sz*.18,angle,t.pop>50000?1.12:t.pop>10000?1:.86);if(t.pop>6000)addSchool(t,sz*.56,sz*.76,angle,t.pop>50000?1.25:t.pop>20000?1.05:.88);if(t.pop>10000)addMarket(t,-sz*.5,sz*.72,angle,t.pop>50000?1.05:.82);
  // Major towns receive extra public buildings in separate neighbourhoods, rather than a single landmark cluster.
  if(t.pop>20000){addSchool(t,-sz*1.08,sz*.78,angle+.18,t.pop>100000?1.08:.92);addMarket(t,sz*.98,sz*1.08,angle-.12,t.pop>100000?.95:.78);}
  if(t.pop>100000)addChurch(t,sz*1.08,-sz*.82,angle+.72,.90);
  // Larger settlements get a small public garden and apartment blocks; mountain hamlets stay compact.
- if(t.pop>20000){const park=placeCivic(t,sz*1.05,sz*.5,angle);const grass=new THREE.MeshStandardMaterial({color:0x78916b,roughness:1});civicBox(park,60, .08,45,grass,0,.05,0);for(let i=0;i<7;i++){const x=(i-3)*7;cyl(park,.11,.16,4.4,sharedMats.treeTrunk,x,2.2,-13,0,0,0,7);for(const [dx,dy,dz,sc] of [[0,4.2,0,1.55],[-.65,3.8,.12,1.0],[.65,4.05,-.1,1.05]])ellipsoid(park,sc,sc,sc,sharedMats.leaf, x+dx,dy+0.5,-13+dz,0,0,0,1);}
+ if(t.pop>20000){const park=placeCivic(t,sz*1.05,sz*.5,angle);civicBox(park,60,.08,45,civicParkGrass,0,.05,0);for(let i=0;i<7;i++){const x=(i-3)*7;cyl(park,.11,.16,4.4,sharedMats.treeTrunk,x,2.2,-13,0,0,0,7);for(const [dx,dy,dz,sc] of [[0,4.2,0,1.55],[-.65,3.8,.12,1.0],[.65,4.05,-.1,1.05]])ellipsoid(park,sc,sc,sc,sharedMats.leaf, x+dx,dy+0.5,-13+dz,0,0,0,1);}
   const n=t.pop>100000?10:4;for(let i=0;i<n;i++){const ox=(i%5-2)*43+sz*1.15,oz=(Math.floor(i/5)-.5)*46;const bg=placeCivic(t,ox,oz,angle);const bw=18+((i+1)%3)*3,bd=16+((i+2)%2)*4,bh=12+(i%3)*4;civicBox(bg,bw,bh,bd,civicWarm,0,bh/2,0);civicBox(bg,bw+.8,.5,bd+.8,civicDarkRoof,0,bh+.25,0);for(let floor=0;floor<Math.floor(bh/3.4);floor++)for(let col=0;col<4;col++)civicBox(bg,1.4,1.15,.075,civicGlass,-bw*.37+col*bw*.245,2+floor*3.4,-bd/2-.05);buildingBoxes.push({x:bg.position.x,z:bg.position.z,r:Math.max(bw,bd)*.55});}}
  }}
 function addCivicFoundations(){
@@ -526,14 +526,19 @@ function addCivicFoundations(){
  }
 }
 function mergeCivicGroups(){
+ const buckets=new Map(),mergeCell=6000,worldMatrix=new THREE.Matrix4();
  for(const group of civicGroups){
-  const buckets=new Map(),oldMeshes=group.children.filter(c=>c.isMesh);
+  group.updateMatrixWorld(true);
+  const cellX=Math.floor(group.position.x/mergeCell),cellZ=Math.floor(group.position.z/mergeCell);
+  const oldMeshes=group.children.filter(child=>child.isMesh);
   for(const child of oldMeshes){
    child.updateMatrix();
    const mat=Array.isArray(child.material)?child.material[0]:child.material;
-   let bucket=buckets.get(mat);
-   if(!bucket){bucket={mat,positions:[],normals:[],indices:[],cast:false,receive:false};buckets.set(mat,bucket);}
-   const geo=child.geometry.clone();geo.applyMatrix4(child.matrix);
+   const key=cellX+','+cellZ+':'+mat.uuid;
+   let bucket=buckets.get(key);
+   if(!bucket){bucket={mat,positions:[],normals:[],indices:[],cast:false,receive:false,cellX,cellZ};buckets.set(key,bucket);}
+   const geo=child.geometry.clone();
+   worldMatrix.multiplyMatrices(group.matrixWorld,child.matrix);geo.applyMatrix4(worldMatrix);
    if(!geo.getAttribute('normal'))geo.computeVertexNormals();
    const pos=geo.getAttribute('position'),norm=geo.getAttribute('normal'),offset=bucket.positions.length/3;
    for(let i=0;i<pos.count;i++){bucket.positions.push(pos.getX(i),pos.getY(i),pos.getZ(i));bucket.normals.push(norm.getX(i),norm.getY(i),norm.getZ(i));}
@@ -541,12 +546,14 @@ function mergeCivicGroups(){
    bucket.cast=bucket.cast||child.castShadow;bucket.receive=bucket.receive||child.receiveShadow;geo.dispose();
   }
   for(const child of oldMeshes)group.remove(child);
-  for(const bucket of buckets.values()){
-   const geo=new THREE.BufferGeometry();
-   geo.setAttribute('position',new THREE.Float32BufferAttribute(bucket.positions,3));
-   geo.setAttribute('normal',new THREE.Float32BufferAttribute(bucket.normals,3));geo.setIndex(bucket.indices);
-   const mesh=new THREE.Mesh(geo,bucket.mat);mesh.castShadow=bucket.cast;mesh.receiveShadow=bucket.receive;group.add(mesh);
-  }
+  scene.remove(group);
+ }
+ // A shared mesh per material and nearby settlement cluster sharply reduces civic draw calls while preserving frustum culling.
+ for(const bucket of buckets.values()){
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(bucket.positions,3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(bucket.normals,3));geo.setIndex(bucket.indices);
+  const mesh=new THREE.Mesh(geo,bucket.mat);mesh.castShadow=bucket.cast;mesh.receiveShadow=bucket.receive;mesh.frustumCulled=true;scene.add(mesh);
  }
 }
 makeVillage();
